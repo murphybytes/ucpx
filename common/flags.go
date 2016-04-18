@@ -3,7 +3,13 @@ package common
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"os"
+)
+
+const (
+	missingSourceMessage = "-from is required in client mode."
+	missingTargetMessage = "-to is required in client mode."
 )
 
 // Flags - persisted command line arguments
@@ -12,16 +18,20 @@ type Flags struct {
 	IsServer bool
 	// If true print help and exit
 	Help bool
-	// User name on host
-	User string
+	// From name of file to copy from
+	From string
+	// To name of file to copy to
+	To string
 }
 
 // NewFlags returns a pointer to Flags which contains command line variables
-func NewFlags() (flags *Flags, e error) {
+func NewFlags() (flags *Flags) {
+	var e error
 	flags = &Flags{}
 	flag.BoolVar(&flags.IsServer, "server", false, "Server mode. If set the application will listen for incoming client requests")
 	// client options
-	flag.StringVar(&flags.User, "user", "", "Client mode.  User on the target system.")
+	flag.StringVar(&flags.From, "from", "", "Client mode file to copy from.  [[user]@[host]:]filepath")
+	flag.StringVar(&flags.To, "to", "", "Client mode file to copy to. [[user]@[host]:]filepath")
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
 	flag.Parse()
 
@@ -35,13 +45,27 @@ func NewFlags() (flags *Flags, e error) {
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
-	return flags, e
+
+	if e != nil {
+		fmt.Println(e)
+		flag.PrintDefaults()
+		os.Exit(2)
+	}
+
+	return flags
 }
 
 func validateClientFlags(flags *Flags) (e error) {
-	if flags.User == "" {
-		e = errors.New("-user is required in client mode")
+	if flags.From == "" {
+		e = errors.New(missingSourceMessage)
+		return e
 	}
+
+	if flags.To == "" {
+		e = errors.New(missingTargetMessage)
+		return e
+	}
+
 	return e
 }
 
