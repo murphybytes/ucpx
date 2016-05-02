@@ -22,6 +22,8 @@ type Flags struct {
 	From string
 	// To name of file to copy to
 	To string
+	// Port of ucp server
+	Port int
 }
 
 // NewFlags returns a pointer to Flags which contains command line variables
@@ -32,6 +34,7 @@ func NewFlags() (flags *Flags) {
 	// client options
 	flag.StringVar(&flags.From, "from", "", "Client mode file to copy from.  [[user]@[host]:]filepath")
 	flag.StringVar(&flags.To, "to", "", "Client mode file to copy to. [[user]@[host]:]filepath")
+	flag.IntVar(&flags.Port, "port", 9191, "The port that the ucp server listens on")
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
 	flag.Parse()
 
