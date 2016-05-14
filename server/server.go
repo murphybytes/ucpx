@@ -27,29 +27,36 @@ func getServerString(flags *common.Flags) string {
 
 // Run the application as a server
 func (s *Server) Run() (e error) {
-	var listener net.Listener
-	if listener, e = udt.Listen(getServerString(s.flags)); e == nil {
-		var logger common.Logger
-
-		if logger, e = common.NewLogger(s.flags); e == nil {
-			for count := 1; ; count++ {
-				var conn net.Conn
-				conn, e = listener.Accept()
-				if e == nil {
-					defer conn.Close()
-					go handleConnection(context{
-						flags:  s.flags,
-						conn:   conn,
-						logger: logger,
-						connID: count,
-					})
-				} else {
-					logger.LogError(e.Error())
-				}
-			}
-		}
-
+	var logger common.Logger
+	if logger, e = common.NewLogger(s.flags); e != nil {
+		return
 	}
+
+	var listener net.Listener
+	if listener, e = udt.Listen(getServerString(s.flags)); e != nil {
+		return
+	}
+
+	for connectionCount := int64(1); ; connectionCount++ {
+		var conn net.Conn
+		conn, e = listener.Accept()
+
+		if e == nil {
+			defer conn.Close()
+
+			go handleConnection(context{
+				flags:  s.flags,
+				conn:   conn,
+				logger: logger,
+				connID: count,
+			})
+
+		} else {
+			logger.LogError(e.Error())
+			break
+		}
+	}
+
 	return
 }
 

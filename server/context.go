@@ -10,7 +10,7 @@ type context struct {
 	flags  *common.Flags
 	conn   net.Conn
 	logger common.Logger
-	connID int
+	connID int64
 }
 
 func newContext(flags *common.Flags, conn net.Conn) *context {
