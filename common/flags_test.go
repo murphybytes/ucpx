@@ -20,3 +20,20 @@ func TestClientValidation(t *testing.T) {
 		t.Error("Expected ", missingTargetMessage, " got ", err)
 	}
 }
+
+func TestLoggingArg(t *testing.T) {
+	flags := &Flags{
+		IsServer: true,
+		LogLevel: "soemthing",
+	}
+	err := validateFlags(flags)
+	if err == nil {
+		t.Error("Expected error because LogLevel is invalid")
+	}
+
+	flags.LogLevel = logInfo
+	err = validateFlags(flags)
+	if err != nil {
+		t.Error("We don't expect error when log level is valid")
+	}
+}

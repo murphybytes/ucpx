@@ -9,11 +9,11 @@ type Client struct {
 }
 
 // New create new Client
-func New() common.Application {
+func New(flags *common.Flags) common.Application {
 	return &Client{}
 }
 
 // Run the client application
-func (c *Client) Run(flags *common.Flags) (e error) {
+func (c *Client) Run() (e error) {
 	return
 }

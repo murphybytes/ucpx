@@ -5,11 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const (
 	missingSourceMessage = "-from is required in client mode."
 	missingTargetMessage = "-to is required in client mode."
+	invalidLogLevel      = "Verbosity argument is not valid."
+
+	logInfo  = "INFO"
+	logWarn  = "WARN"
+	logError = "ERROR"
 )
 
 // Flags - persisted command line arguments
@@ -24,6 +30,10 @@ type Flags struct {
 	To string
 	// Port of ucp server
 	Port int
+	// Interface the server uses
+	Host string
+	// Log level INFO, WARN, ERROR
+	LogLevel string
 }
 
 // NewFlags returns a pointer to Flags which contains command line variables
@@ -34,7 +44,9 @@ func NewFlags() (flags *Flags) {
 	// client options
 	flag.StringVar(&flags.From, "from", "", "Client mode file to copy from.  [[user]@[host]:]filepath")
 	flag.StringVar(&flags.To, "to", "", "Client mode file to copy to. [[user]@[host]:]filepath")
-	flag.IntVar(&flags.Port, "port", 9191, "The port that the ucp server listens on")
+	flag.IntVar(&flags.Port, "port", 9191, "Server Mode. The port that the ucp server listens on")
+	flag.StringVar(&flags.Host, "host", "localhost", "Server Mode. The host or interface the server listens on")
+	flag.StringVar(&flags.LogLevel, "verbosity", logWarn, "Log level. INFO|WARN|ERROR")
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
 	flag.Parse()
 
@@ -69,9 +81,20 @@ func validateClientFlags(flags *Flags) (e error) {
 		return e
 	}
 
+	e = validateFlags(flags)
+
 	return e
 }
 
+func validateFlags(flags *Flags) (e error) {
+	flags.LogLevel = strings.ToUpper(flags.LogLevel)
+	if !(flags.LogLevel == logInfo || flags.LogLevel == logWarn || flags.LogLevel == logError) {
+		e = errors.New(invalidLogLevel)
+	}
+	return
+}
+
 func validateServerFlags(flags *Flags) (e error) {
+	e = validateFlags(flags)
 	return e
 }

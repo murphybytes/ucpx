@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"log"
 
 	"github.com/murphybytes/ucp/client"
 	"github.com/murphybytes/ucp/common"
@@ -10,18 +9,21 @@ import (
 )
 
 func main() {
-	var app common.Application
-	flags := common.NewFlags()
-	if flags.IsServer {
-		app = server.New()
-	} else {
-		app = client.New()
-	}
-	err := app.Run(flags)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	os.Exit(0)
 
+	flags := common.NewFlags()
+	app := newApplication(flags)
+	err := app.Run()
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+}
+
+func newApplication(f *common.Flags) (app common.Application) {
+	if f.IsServer {
+		app = server.New(f)
+	} else {
+		app = client.New(f)
+	}
+	return app
 }
