@@ -48,7 +48,7 @@ func (s *Server) Run() (e error) {
 				flags:  s.flags,
 				conn:   conn,
 				logger: logger,
-				connID: count,
+				connID: connectionCount,
 			})
 
 		} else {

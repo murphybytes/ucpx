@@ -1,0 +1,12 @@
+syntax = "proto3";
+package wire;
+// AuthenticationRequest is the initial request
+// client makes to start session with server
+message AuthenticationRequest {
+  // UserName name of the client
+  string UserName = 1;
+  // MethodName PUBLIC_KEY or PASSWORD
+  string MethodName = 2;
+  // PublicKey of the client
+  string PublicKey = 3;
+}
