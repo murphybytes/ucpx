@@ -6,10 +6,12 @@ import (
 	"github.com/murphybytes/ucp/client"
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/server"
+	"github.com/murphybytes/udt.go/udt"
 )
 
 func main() {
-
+	udt.Startup()
+	defer udt.Cleanup()
 	flags := common.NewFlags()
 	app := newApplication(flags)
 	err := app.Run()

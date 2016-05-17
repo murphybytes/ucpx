@@ -10,3 +10,11 @@ message AuthenticationRequest {
   // PublicKey of the client
   string PublicKey = 3;
 }
+
+// AuthenticationResponse is the server reponse to AuthenticationRequest
+message AuthenticationResponse {
+    // MethodName that the server expects
+    string MethodName = 1;
+    // PublicKey of the server
+    string PublicKey = 2;
+}
