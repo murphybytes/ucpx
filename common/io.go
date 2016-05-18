@@ -1,5 +1,7 @@
 package common
 
+import "net"
+
 // Reader abstracts reading a file which
 // can be local or remote
 type Reader interface {
@@ -16,5 +18,5 @@ type Writer interface {
 
 // Authenticator handles authenticating operation
 type Authenticator interface {
-	Authenticate() (bool, error)
+	Authenticate(conn net.Conn, user string) (bool, error)
 }

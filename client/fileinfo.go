@@ -2,16 +2,20 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"os/user"
 	"strconv"
 	"strings"
+
+	"github.com/murphybytes/ucp/common"
 )
 
 type fileInfo struct {
-	host string
-	user string
-	port int
-	path string
+	host  string
+	user  string
+	port  int
+	path  string
+	local bool
 }
 
 func parseUserHost(userHost string) (user, host string, e error) {
@@ -31,13 +35,14 @@ func parseUserHost(userHost string) (user, host string, e error) {
 // [user@host[:port]:]/path/to/file
 // is optional user@host is not supplied /path/to/file is assumed
 // to be local with the current user
-func newFileInfo(filespec string, defaultPort int) (fi *fileInfo, e error) {
+func newFileInfo(filespec string) (fi *fileInfo, e error) {
 	fi = &fileInfo{
-		port: defaultPort,
+		port: common.DefaultPort,
 	}
 
 	parts := strings.Split(filespec, ":")
 	if len(parts) == 1 {
+		fi.local = true
 		fi.path = filespec
 		fi.host = "localhost"
 
@@ -69,4 +74,14 @@ func newFileInfo(filespec string, defaultPort int) (fi *fileInfo, e error) {
 	}
 
 	return fi, nil
+}
+
+func (fi *fileInfo) getConnectString() (connectString string, e error) {
+	if fi.local {
+		e = errors.New("Connect string not available for local file info.")
+		return
+	}
+	connectString = fmt.Sprint(fi.host, ":", fi.port)
+	return
+
 }

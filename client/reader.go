@@ -4,6 +4,27 @@ import (
 	"github.com/murphybytes/ucp/common"
 )
 
-func newReader(filespec string) (reader common.Reader, e error) {
+type reader struct {
+	ctx *context
+}
+
+func newReader(filespec string) (r common.Reader, e error) {
+	var ctx *context
+	ctx, e = getContext(filespec)
+	if e != nil {
+		return
+	}
+	r = &reader{
+		ctx: ctx,
+	}
+
 	return
+}
+
+func (r *reader) Read() (buff []byte, e error) {
+	return
+}
+
+func (r *reader) Close() {
+
 }

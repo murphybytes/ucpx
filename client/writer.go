@@ -4,6 +4,26 @@ import (
 	"github.com/murphybytes/ucp/common"
 )
 
-func newWriter(filespec string) (writer common.Writer, e error) {
+type writer struct {
+	ctx *context
+}
+
+func newWriter(filespec string) (w common.Writer, e error) {
+	var ctx *context
+	ctx, e = getContext(filespec)
+	if e != nil {
+		return
+	}
+	w = &writer{
+		ctx: ctx,
+	}
 	return
+}
+
+func (w *writer) Write(buffer []byte) (e error) {
+	return
+}
+
+func (w *writer) Close() {
+
 }

@@ -16,6 +16,8 @@ const (
 	logInfo  = "INFO"
 	logWarn  = "WARN"
 	logError = "ERROR"
+	// DefaultPort used to connect unless changed on command line
+	DefaultPort = 9191
 )
 
 // Flags - persisted command line arguments
@@ -44,7 +46,7 @@ func NewFlags() (flags *Flags) {
 	// client options
 	flag.StringVar(&flags.From, "from", "", "Client mode file to copy from.  [[user]@[host]:]filepath")
 	flag.StringVar(&flags.To, "to", "", "Client mode file to copy to. [[user]@[host]:]filepath")
-	flag.IntVar(&flags.Port, "port", 9191, "Server Mode. The port that the ucp server listens on")
+	flag.IntVar(&flags.Port, "port", DefaultPort, "Server Mode. The port that the ucp server listens on")
 	flag.StringVar(&flags.Host, "host", "localhost", "Server Mode. The host or interface the server listens on")
 	flag.StringVar(&flags.LogLevel, "verbosity", logWarn, "Log level. INFO|WARN|ERROR")
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
