@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// generates public/private keys and write each to file
 func ucpKeyGenerate(privateKeyPath, publicKeyPath string) (e error) {
 	var privateKey *rsa.PrivateKey
 

@@ -63,18 +63,19 @@ func NewFlags() (flags *Flags) {
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
 	flag.Parse()
 
-	if flags.IsServer {
-		e = validateServerFlags(flags)
-	} else {
-		e = validateClientFlags(flags)
+	if e = validateFlags(flags); e != nil {
+		fmt.Println("Missing or invalid command line arguments -", e.Error())
+		fmt.Println
+		flag.PrintDefaults()
+		os.Exit(1)
 	}
 
 	if flags.Help {
 		flag.PrintDefaults()
-		os.Exit(2)
+		os.Exit(0)
 	}
 
-	if e != nil && flags.GenerateKeys {
+	if flags.GenerateKeys {
 		if e = ucpKeyGenerate(flags.PrivateKeyPath, flags.PublicKeyPath); e == nil {
 			fmt.Println("Key generation successful")
 			fmt.Println("Public key ->", flags.PublicKeyPath)
@@ -84,12 +85,6 @@ func NewFlags() (flags *Flags) {
 			fmt.Println("Key generation failed -", e.Error())
 			os.Exit(1)
 		}
-	}
-
-	if e != nil {
-		fmt.Println(e)
-		flag.PrintDefaults()
-		os.Exit(2)
 	}
 
 	return flags
@@ -106,28 +101,31 @@ func getDefaultKeyPath(keyname string) (path string) {
 func validateClientFlags(flags *Flags) (e error) {
 	if flags.From == "" {
 		e = errors.New(missingSourceMessage)
-		return e
+		return
 	}
 
 	if flags.To == "" {
 		e = errors.New(missingTargetMessage)
-		return e
+		return
 	}
 
-	e = validateFlags(flags)
-
-	return e
+	return
 }
 
 func validateFlags(flags *Flags) (e error) {
 	flags.LogLevel = strings.ToUpper(flags.LogLevel)
 	if !(flags.LogLevel == logInfo || flags.LogLevel == logWarn || flags.LogLevel == logError) {
 		e = errors.New(invalidLogLevel)
+		return
 	}
-	return
+
+	if flags.IsServer {
+		return validateServerFlags(flags)
+	}
+
+	return validateClientFlags(flags)
 }
 
 func validateServerFlags(flags *Flags) (e error) {
-	e = validateFlags(flags)
-	return e
+	return
 }
