@@ -1,7 +1,16 @@
 package client
 
-import "net"
+func authenticate(ctx *context) (e error) {
 
-func authenticate(conn net.Conn, user string) (e error) {
+	return
+}
+
+func getPrivateKey() (key string, e error) {
+
+	return
+}
+
+func getPublicKey() (key string, e error) {
+
 	return
 }

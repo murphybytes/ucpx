@@ -18,6 +18,8 @@ const (
 	logError = "ERROR"
 	// DefaultPort used to connect unless changed on command line
 	DefaultPort = 9191
+	// KeySize default RSA key size
+	KeySize = 4096
 )
 
 // Flags - persisted command line arguments
@@ -36,6 +38,12 @@ type Flags struct {
 	Host string
 	// Log level INFO, WARN, ERROR
 	LogLevel string
+	// Path to public crypto key
+	PublicKeyPath string
+	//  Path to private key
+	PrivateKeyPath string
+	// Generate public private keys and exit
+	GenerateKeys bool
 }
 
 // NewFlags returns a pointer to Flags which contains command line variables
@@ -49,6 +57,9 @@ func NewFlags() (flags *Flags) {
 	flag.IntVar(&flags.Port, "port", DefaultPort, "Server Mode. The port that the ucp server listens on")
 	flag.StringVar(&flags.Host, "host", "localhost", "Server Mode. The host or interface the server listens on")
 	flag.StringVar(&flags.LogLevel, "verbosity", logWarn, "Log level. INFO|WARN|ERROR")
+	flag.StringVar(&flags.PrivateKeyPath, "private-key-path", getDefaultKeyPath("ucp.pem"), "Path to private key")
+	flag.StringVar(&flags.PublicKeyPath, "public-key-path", getDefaultKeyPath("id_rsa.pub"), "Path to public key")
+	flag.BoolVar(&flags.GenerateKeys, "generate-keys", false, "Generate key pair and exit")
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
 	flag.Parse()
 
@@ -63,6 +74,18 @@ func NewFlags() (flags *Flags) {
 		os.Exit(2)
 	}
 
+	if e != nil && flags.GenerateKeys {
+		if e = ucpKeyGenerate(flags.PrivateKeyPath, flags.PublicKeyPath); e == nil {
+			fmt.Println("Key generation successful")
+			fmt.Println("Public key ->", flags.PublicKeyPath)
+			fmt.Println("Private key ->", flags.PrivateKeyPath)
+			os.Exit(0)
+		} else {
+			fmt.Println("Key generation failed -", e.Error())
+			os.Exit(1)
+		}
+	}
+
 	if e != nil {
 		fmt.Println(e)
 		flag.PrintDefaults()
@@ -70,6 +93,14 @@ func NewFlags() (flags *Flags) {
 	}
 
 	return flags
+}
+
+func getDefaultKeyPath(keyname string) (path string) {
+	if homeDir := os.Getenv("HOME"); homeDir != "" {
+		path = fmt.Sprintf("%s/.ucp/%s", homeDir, keyname)
+	}
+	return
+
 }
 
 func validateClientFlags(flags *Flags) (e error) {

@@ -17,6 +17,7 @@ type Client struct {
 type context struct {
 	conn     net.Conn
 	fileInfo *fileInfo
+	flags    *common.Flags
 }
 
 // New create new Client
@@ -31,12 +32,12 @@ func (c *Client) Run() (e error) {
 	var reader common.Reader
 	var writer common.Writer
 
-	if reader, e = newReader(c.flags.From); e != nil {
+	if reader, e = newReader(c.flags); e != nil {
 		log.Fatal(e.Error())
 	}
 	defer reader.Close()
 
-	if writer, e = newWriter(c.flags.To); e != nil {
+	if writer, e = newWriter(c.flags); e != nil {
 		log.Fatal(e.Error())
 	}
 	defer writer.Close()
@@ -59,7 +60,15 @@ func (c *Client) Run() (e error) {
 	return
 }
 
-func getContext(filespec string) (c *context, e error) {
+func getReadContext(flags *common.Flags) (c *context, e error) {
+	return getContext(flags.From, flags)
+}
+
+func getWriteContext(flags *common.Flags) (c *context, e error) {
+	return getContext(flags.To, flags)
+}
+
+func getContext(filespec string, flags *common.Flags) (c *context, e error) {
 	var fi *fileInfo
 	fi, e = newFileInfo(filespec)
 
@@ -69,6 +78,7 @@ func getContext(filespec string) (c *context, e error) {
 
 	c = &context{
 		fileInfo: fi,
+		flags:    flags,
 	}
 
 	if !fi.local {
@@ -81,7 +91,7 @@ func getContext(filespec string) (c *context, e error) {
 		if e != nil {
 			return
 		}
-		e = authenticate(c.conn, fi.user)
+		e = authenticate(c)
 		if e != nil {
 			c.conn.Close()
 			return

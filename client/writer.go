@@ -8,9 +8,9 @@ type writer struct {
 	ctx *context
 }
 
-func newWriter(filespec string) (w common.Writer, e error) {
+func newWriter(flags *common.Flags) (w common.Writer, e error) {
 	var ctx *context
-	ctx, e = getContext(filespec)
+	ctx, e = getWriteContext(flags)
 	if e != nil {
 		return
 	}

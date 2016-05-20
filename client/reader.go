@@ -8,9 +8,9 @@ type reader struct {
 	ctx *context
 }
 
-func newReader(filespec string) (r common.Reader, e error) {
+func newReader(flags *common.Flags) (r common.Reader, e error) {
 	var ctx *context
-	ctx, e = getContext(filespec)
+	ctx, e = getReadContext(flags)
 	if e != nil {
 		return
 	}
