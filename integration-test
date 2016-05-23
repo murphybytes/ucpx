@@ -1,0 +1,96 @@
+#!/bin/bash
+
+function test_passed
+{
+    echo -e "\033[40m\033[1;32m ${test_name} ...Test Passed!  \033[0m"
+}
+
+function test_failed
+{
+    echo -e "\033[40m\033[1;31m ${test_name} ...Test Failed!   \033[0m"
+    exit 1
+}
+
+function check_result
+{
+    RESULT=$?
+    echo
+    if [[ $RESULT == "0" ]]
+    then
+	     test_passed
+    else
+	     test_failed
+    fi
+}
+
+
+function kill_ucp_server {
+  UCP_PID=`lsof -i :9191 | grep ucp | awk '{ print $2 }'`
+
+  if [ ! -z "$UCP_PID" ]; then
+    echo "Indexer is running on $UCP_PID, killing process."
+    kill -9 $UCP_PID
+  fi
+}
+
+
+echo "========================================================================"
+echo "Preparing to run integration tests. Note that the test build of ucp"
+echo "runs with race detection enabled so the test run might quite awhile."
+echo "========================================================================"
+echo
+
+if [ -z "$GOPATH" ]; then
+  echo "You must set GOPATH before running integration tests."
+  exit 1
+fi
+
+go install github.com/murphybytes/ucp
+
+kill_ucp_server
+
+if [ ! -d "$HOME/.ucp" ]; then
+  echo "No encryption keys found, generating keys"
+  mkdir "$HOME/.ucp"
+  ucp -generate-keys
+fi
+
+echo "Running ucp server in background"
+ucp -server > /dev/null 2>&1 &
+
+echo "Generating test file"
+dd if=/dev/urandom of=filein.txt bs=1048576 count=100
+
+ORIGINAL_FILE_CHECKSUM=`md5 -q filein.txt`
+
+echo "copying file"
+
+ucp -from filein.txt -to "$USER@127.0.0.1:$(pwd)/fileout.txt"
+
+RESULT=$?
+kill_ucp_server
+
+if [ "$RESULT" == "0" ]; then
+  echo "ucp exited successfully"
+else
+  echo "ucp exited with a failure code"
+  test_failed
+fi
+
+echo "Checking for output file"
+if [ ! -e fileout.txt ]; then
+  echo "Missing output file"
+  test_failed
+fi
+
+NEW_FILE_CHECKSUM=`md5 -q fileout.txt`
+
+rm -f  filein.txt
+rm -f fileout.txt
+
+echo "Comparing checksum between original file and copy"
+if [ "$ORIGINAL_FILE_CHECKSUM" = "$NEW_FILE_CHECKSUM" ]; then
+  test_passed
+else
+  test_failed
+fi

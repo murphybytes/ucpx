@@ -8,7 +8,7 @@ message AuthenticationRequest {
   // MethodName PUBLIC_KEY or PASSWORD
   string MethodName = 2;
   // PublicKey of the client
-  string PublicKey = 3;
+  bytes PublicKey = 3;
 }
 
 // AuthenticationResponse is the server reponse to AuthenticationRequest
@@ -16,5 +16,5 @@ message AuthenticationResponse {
     // MethodName that the server expects
     string MethodName = 1;
     // PublicKey of the server
-    string PublicKey = 2;
+    bytes PublicKey = 2;
 }

@@ -55,7 +55,7 @@ func NewFlags() (flags *Flags) {
 	flag.StringVar(&flags.From, "from", "", "Client mode file to copy from.  [[user]@[host]:]filepath")
 	flag.StringVar(&flags.To, "to", "", "Client mode file to copy to. [[user]@[host]:]filepath")
 	flag.IntVar(&flags.Port, "port", DefaultPort, "Server Mode. The port that the ucp server listens on")
-	flag.StringVar(&flags.Host, "host", "localhost", "Server Mode. The host or interface the server listens on")
+	flag.StringVar(&flags.Host, "host", "127.0.0.1", "Server Mode. The host or interface the server listens on")
 	flag.StringVar(&flags.LogLevel, "verbosity", logWarn, "Log level. INFO|WARN|ERROR")
 	flag.StringVar(&flags.PrivateKeyPath, "private-key-path", getDefaultKeyPath("ucp.pem"), "Path to private key")
 	flag.StringVar(&flags.PublicKeyPath, "public-key-path", getDefaultKeyPath("id_rsa.pub"), "Path to public key")
@@ -65,7 +65,7 @@ func NewFlags() (flags *Flags) {
 
 	if e = validateFlags(flags); e != nil {
 		fmt.Println("Missing or invalid command line arguments -", e.Error())
-		fmt.Println
+		fmt.Println()
 		flag.PrintDefaults()
 		os.Exit(1)
 	}

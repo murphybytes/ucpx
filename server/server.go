@@ -33,7 +33,9 @@ func (s *Server) Run() (e error) {
 	}
 
 	var listener net.Listener
-	if listener, e = udt.Listen(getServerString(s.flags)); e != nil {
+	connectString := getServerString(s.flags)
+	logger.LogInfo("Connecting to ", connectString)
+	if listener, e = udt.Listen(connectString); e != nil {
 		return
 	}
 

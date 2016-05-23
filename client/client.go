@@ -1,7 +1,6 @@
 package client
 
 import (
-	"io"
 	"log"
 	"net"
 
@@ -18,6 +17,7 @@ type context struct {
 	conn     net.Conn
 	fileInfo *fileInfo
 	flags    *common.Flags
+	logger   common.Logger
 }
 
 // New create new Client
@@ -42,20 +42,22 @@ func (c *Client) Run() (e error) {
 	}
 	defer writer.Close()
 
-	for {
-		var buffer []byte
-		if buffer, e = reader.Read(); e != nil {
-			if e == io.EOF {
-				break
-			} else {
-				log.Fatal(e.Error())
-			}
-		}
-
-		if e = writer.Write(buffer); e != nil {
-			log.Fatal(e.Error())
-		}
-	}
+	// for {
+	// 	var buffer []byte
+	//
+	// 	if buffer, e = reader.Read(); e != nil {
+	// 		if e == io.EOF {
+	// 			break
+	// 		} else {
+	// 			log.Fatal(e.Error())
+	// 		}
+	// 	}
+	//
+	// 	if e = writer.Write(buffer); e != nil {
+	// 		log.Fatal(e.Error())
+	// 	}
+	//
+	// }
 
 	return
 }
@@ -76,14 +78,21 @@ func getContext(filespec string, flags *common.Flags) (c *context, e error) {
 		return
 	}
 
+	var logger common.Logger
+	if logger, e = common.NewLogger(flags); e != nil {
+		return
+	}
+
 	c = &context{
 		fileInfo: fi,
 		flags:    flags,
+		logger:   logger,
 	}
 
 	if !fi.local {
 		var connectString string
 		connectString, e = fi.getConnectString()
+		logger.LogInfo("Client connecting to ", connectString)
 		if e != nil {
 			return
 		}
