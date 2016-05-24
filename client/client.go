@@ -2,22 +2,13 @@ package client
 
 import (
 	"log"
-	"net"
 
 	"github.com/murphybytes/ucp/common"
-	"github.com/murphybytes/udt.go/udt"
 )
 
 // Client contains all the logic for ucp client.
 type Client struct {
 	flags *common.Flags
-}
-
-type context struct {
-	conn     net.Conn
-	fileInfo *fileInfo
-	flags    *common.Flags
-	logger   common.Logger
 }
 
 // New create new Client
@@ -58,54 +49,6 @@ func (c *Client) Run() (e error) {
 	// 	}
 	//
 	// }
-
-	return
-}
-
-func getReadContext(flags *common.Flags) (c *context, e error) {
-	return getContext(flags.From, flags)
-}
-
-func getWriteContext(flags *common.Flags) (c *context, e error) {
-	return getContext(flags.To, flags)
-}
-
-func getContext(filespec string, flags *common.Flags) (c *context, e error) {
-	var fi *fileInfo
-	fi, e = newFileInfo(filespec)
-
-	if e != nil {
-		return
-	}
-
-	var logger common.Logger
-	if logger, e = common.NewLogger(flags); e != nil {
-		return
-	}
-
-	c = &context{
-		fileInfo: fi,
-		flags:    flags,
-		logger:   logger,
-	}
-
-	if !fi.local {
-		var connectString string
-		connectString, e = fi.getConnectString()
-		logger.LogInfo("Client connecting to ", connectString)
-		if e != nil {
-			return
-		}
-		c.conn, e = udt.Dial(connectString)
-		if e != nil {
-			return
-		}
-		e = authenticate(c)
-		if e != nil {
-			c.conn.Close()
-			return
-		}
-	}
 
 	return
 }

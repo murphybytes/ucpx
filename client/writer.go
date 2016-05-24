@@ -25,5 +25,6 @@ func (w *writer) Write(buffer []byte) (e error) {
 }
 
 func (w *writer) Close() {
+	w.ctx.close()
 
 }
