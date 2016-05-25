@@ -39,12 +39,13 @@ func (s *Server) Run() (e error) {
 		return
 	}
 
+	defer listener.Close()
+
 	for connectionCount := int64(1); ; connectionCount++ {
 		var conn net.Conn
 		conn, e = listener.Accept()
 
 		if e == nil {
-			defer conn.Close()
 
 			go handleConnection(context{
 				flags:  s.flags,
@@ -63,6 +64,13 @@ func (s *Server) Run() (e error) {
 }
 
 func handleConnection(ctx context) {
-	ctx.logger.LogInfo("Connection", ctx.connID, "starting...")
+	defer ctx.conn.Close()
+	ctx.logger.LogInfo("Connection from ", ctx.conn.RemoteAddr())
+
+	var e error
+	if e = authenticate(&ctx); e != nil {
+		ctx.logger.LogError("Authentication failed -", e.Error())
+		return
+	}
 
 }

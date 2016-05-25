@@ -38,7 +38,7 @@ func getContext(filespec string, flags *common.Flags) (c *context, e error) {
 		return
 	}
 
-	c = &context{
+	ctx := &context{
 		fileInfo: fi,
 		flags:    flags,
 		logger:   logger,
@@ -57,8 +57,11 @@ func getContext(filespec string, flags *common.Flags) (c *context, e error) {
 			return
 		}
 
-		c.server = newServer(conn)
-		e = authenticate(c, fmt.Scanln)
+		if ctx.server, e = newServer(conn, ctx); e != nil {
+			return
+		}
+
+		e = authenticate(ctx, fmt.Scanln)
 
 	}
 

@@ -42,3 +42,17 @@ func ucpKeyGenerate(privateKeyPath, publicKeyPath string) (e error) {
 	return ioutil.WriteFile(publicKeyPath, ssh.MarshalAuthorizedKey(pub), 0655)
 
 }
+
+// GetPrivateKey returns serialized private key file, file
+// location may be specified on command line
+func GetPrivateKey(flags *Flags) (key []byte, e error) {
+	key, e = ioutil.ReadFile(flags.PrivateKeyPath)
+	return
+}
+
+// GetPublicKey returns contents of public key file.  Non-default file
+// location may be specified on command line
+func GetPublicKey(flags *Flags) (key []byte, e error) {
+	key, e = ioutil.ReadFile(flags.PublicKeyPath)
+	return
+}

@@ -1,8 +1,8 @@
 package client
 
 import (
+	"crypto"
 	"errors"
-	"io/ioutil"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/murphybytes/ucp/common"
@@ -13,7 +13,7 @@ import (
 func authenticate(ctx *context, passwdReader func(a ...interface{}) (i int, e error)) (e error) {
 	// get our public key and send to server
 	var publicKeyBuffer []byte
-	if publicKeyBuffer, e = getPublicKey(ctx.flags); e != nil {
+	if publicKeyBuffer, e = common.GetPublicKey(ctx.flags); e != nil {
 		ctx.logger.LogError("Unable to fetch public key - ", e.Error())
 	}
 
@@ -34,9 +34,12 @@ func authenticate(ctx *context, passwdReader func(a ...interface{}) (i int, e er
 	}
 
 	// get public key server sent us to encrypt messages sent to server
-	if ctx.publicKey, e = ssh.ParsePublicKey(authResponse.PublicKey); e != nil {
+	var publicKey crypto.PublicKey
+	if publicKey, e = ssh.ParsePublicKey(authResponse.PublicKey); e != nil {
 		return
 	}
+
+	ctx.server.setPublicKey(publicKey)
 
 	// If server sends us PUBLIC_KEY the public key we sent was
 	// found in the target users authorized_keys file so we're done
@@ -52,15 +55,5 @@ func authenticate(ctx *context, passwdReader func(a ...interface{}) (i int, e er
 	// send password over secure channel
 	//	if response, e = ctx.server.secureGet(request proto.Message)
 
-	return
-}
-
-func getPrivateKey(flags *common.Flags) (key []byte, e error) {
-	key, e = ioutil.ReadFile(flags.PrivateKeyPath)
-	return
-}
-
-func getPublicKey(flags *common.Flags) (key []byte, e error) {
-	key, e = ioutil.ReadFile(flags.PublicKeyPath)
 	return
 }
