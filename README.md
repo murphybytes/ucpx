@@ -1,5 +1,5 @@
 # ucp
-Super fast encrypted network file copy....
+Super fast encrypted network file copy that uses [UDT](http://udt.sourceforge.net/), A UDP based network protocol optimized for bulk data transfers. 
 
 ## Usage
 
