@@ -27,7 +27,7 @@ func TestErrorLogger(t *testing.T) {
 
 	l.LogError("error")
 
-	if m.msg != "errorss" {
+	if m.msg != "error" {
 		t.Error("Message should be logged")
 	}
 
