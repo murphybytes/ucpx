@@ -2,17 +2,18 @@ package client
 
 import (
 	"crypto"
+	"crypto/rsa"
 	"net"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
+	"golang.org/x/crypto/ssh"
 )
 
 type requester interface {
+	initializeSecureChannel() (response *wire.AuthenticationResponse, e error)
 	get(request proto.Message) (response proto.Message, e error)
-	secureGet(request proto.Message) (response proto.Message, e error)
-	setPublicKey(publicKey crypto.PublicKey)
 	close()
 }
 
@@ -40,9 +41,22 @@ func (s *server) setPublicKey(publicKey crypto.PublicKey) {
 	s.publicKey = publicKey
 }
 
-func (s *server) get(request proto.Message) (response proto.Message, e error) {
-	var requestBuffer []byte
+// All we are doing here is exchanging public keys
+func (s *server) initializeSecureChannel() (response *wire.AuthenticationResponse, e error) {
+	rsaPrivateKey := s.privateKey.(*rsa.PrivateKey)
 
+	var sshPublicKey ssh.PublicKey
+	if sshPublicKey, e = ssh.NewPublicKey(rsaPrivateKey.Public()); e != nil {
+		return
+	}
+
+	// first message goes to server unencrypted
+	request := &wire.AuthenticationRequest{
+		MethodName: wire.AuthenticationMethodPublicKey,
+		PublicKey:  sshPublicKey.Marshal(),
+	}
+
+	var requestBuffer []byte
 	if requestBuffer, e = proto.Marshal(request); e != nil {
 		return
 	}
@@ -51,19 +65,27 @@ func (s *server) get(request proto.Message) (response proto.Message, e error) {
 		return
 	}
 
+	// response is encrypted
 	responseBuffer := make([]byte, wire.ReadBufferSize)
 	if _, e = s.conn.Read(responseBuffer); e != nil {
 		return
 	}
 
-	if e = proto.Unmarshal(responseBuffer, response); e != nil {
+	var unencrypted []byte
+	if unencrypted, e = common.DecryptOAEP(rsaPrivateKey, responseBuffer); e != nil {
 		return
 	}
+
+	if e = proto.Unmarshal(unencrypted, response); e != nil {
+		return
+	}
+
+	s.publicKey, e = ssh.ParsePublicKey(response.PublicKey)
 
 	return
 }
 
-func (s *server) secureGet(request proto.Message) (response proto.Message, e error) {
+func (s *server) get(request proto.Message) (response proto.Message, e error) {
 	var requestBuffer []byte
 
 	if requestBuffer, e = proto.Marshal(request); e != nil {

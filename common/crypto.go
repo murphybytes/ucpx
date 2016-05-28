@@ -75,6 +75,25 @@ func GetPrivateKey(privateKeyPath string) (key crypto.PrivateKey, e error) {
 
 }
 
+// GetMarshalPublicKey gets public key in wire format
+func GetMarshalPublicKey(privateKeyPath string) (keyBuff []byte, e error) {
+	var cpk crypto.PrivateKey
+	if cpk, e = GetPrivateKey(privateKeyPath); e != nil {
+		return
+	}
+
+	var rsaPrivateKey *rsa.PrivateKey
+	rsaPrivateKey = cpk.(*rsa.PrivateKey)
+
+	var sshPublicKey ssh.PublicKey
+	if sshPublicKey, e = ssh.NewPublicKey(rsaPrivateKey.Public()); e != nil {
+		return
+	}
+
+	keyBuff = sshPublicKey.Marshal()
+	return
+}
+
 // EncryptOAEP encrypts a buffer
 func EncryptOAEP(publicKey crypto.PublicKey, unencrypted []byte) (encrypted []byte, e error) {
 	var md5Hash hash.Hash

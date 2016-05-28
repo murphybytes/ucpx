@@ -68,7 +68,12 @@ func handleConnection(ctx context) {
 	ctx.logger.LogInfo("Connection from ", ctx.conn.RemoteAddr())
 
 	var e error
-	if e = authenticate(&ctx); e != nil {
+	var client respondent
+	if client, e = newClient(&ctx); e != nil {
+		ctx.logger.LogError("Client creation failed -", e.Error())
+	}
+
+	if e = authenticate(client, &ctx); e != nil {
 		ctx.logger.LogError("Authentication failed -", e.Error())
 		return
 	}
