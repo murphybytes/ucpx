@@ -1,6 +1,6 @@
 package client
 
-func authenticate(ctx *context, passwdReader func(a ...interface{}) (i int, e error)) (e error) {
+func auth(ctx *context, passwdReader func(a ...interface{}) (i int, e error)) (e error) {
 
 	if e = ctx.server.initializeSecureChannel(); e != nil {
 		return

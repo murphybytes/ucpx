@@ -61,7 +61,7 @@ func getContext(filespec string, flags *common.Flags) (c *context, e error) {
 			return
 		}
 
-		e = authenticate(ctx, fmt.Scanln)
+		e = auth(ctx, fmt.Scanln)
 
 	}
 
