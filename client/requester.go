@@ -1,31 +1,32 @@
 package client
 
 import (
-	"crypto"
+	"bytes"
 	"crypto/rsa"
+	"encoding/gob"
+	"math/big"
 	"net"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
-	"golang.org/x/crypto/ssh"
 )
 
 type requester interface {
-	initializeSecureChannel() (response *wire.AuthenticationResponse, e error)
+	initializeSecureChannel() (e error)
 	get(request proto.Message) (response proto.Message, e error)
 	close()
 }
 
 type server struct {
 	conn       net.Conn
-	publicKey  crypto.PublicKey
-	privateKey crypto.PrivateKey
+	publicKey  *rsa.PublicKey
+	privateKey *rsa.PrivateKey
 }
 
 func newServer(conn net.Conn, ctx *context) (r requester, e error) {
 
-	var privateKey crypto.PrivateKey
+	var privateKey *rsa.PrivateKey
 	if privateKey, e = common.GetPrivateKey(ctx.flags.PrivateKeyPath); e != nil {
 		return
 	}
@@ -37,50 +38,31 @@ func newServer(conn net.Conn, ctx *context) (r requester, e error) {
 	return
 }
 
-func (s *server) setPublicKey(publicKey crypto.PublicKey) {
-	s.publicKey = publicKey
-}
-
 // All we are doing here is exchanging public keys
-func (s *server) initializeSecureChannel() (response *wire.AuthenticationResponse, e error) {
-	rsaPrivateKey := s.privateKey.(*rsa.PrivateKey)
+func (s *server) initializeSecureChannel() (e error) {
 
-	var sshPublicKey ssh.PublicKey
-	if sshPublicKey, e = ssh.NewPublicKey(rsaPrivateKey.Public()); e != nil {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	if e = encoder.Encode(s.privateKey.PublicKey); e != nil {
 		return
 	}
 
-	// first message goes to server unencrypted
-	request := &wire.AuthenticationRequest{
-		MethodName: wire.AuthenticationMethodPublicKey,
-		PublicKey:  sshPublicKey.Marshal(),
-	}
-
-	var requestBuffer []byte
-	if requestBuffer, e = proto.Marshal(request); e != nil {
+	if _, e = s.conn.Write(buffer.Bytes()); e != nil {
 		return
 	}
 
-	if _, e = s.conn.Write(requestBuffer); e != nil {
+	response := make([]byte, wire.ReadBufferSize)
+	if _, e = s.conn.Read(response); e != nil {
 		return
 	}
 
-	// response is encrypted
-	responseBuffer := make([]byte, wire.ReadBufferSize)
-	if _, e = s.conn.Read(responseBuffer); e != nil {
-		return
+	decoder := gob.NewDecoder(bytes.NewBuffer(response))
+
+	s.publicKey = &rsa.PublicKey{
+		N: &big.Int{},
 	}
 
-	var unencrypted []byte
-	if unencrypted, e = common.DecryptOAEP(rsaPrivateKey, responseBuffer); e != nil {
-		return
-	}
-
-	if e = proto.Unmarshal(unencrypted, response); e != nil {
-		return
-	}
-
-	s.publicKey, e = ssh.ParsePublicKey(response.PublicKey)
+	e = decoder.Decode(s.publicKey)
 
 	return
 }

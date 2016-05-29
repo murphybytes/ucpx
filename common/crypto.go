@@ -58,7 +58,7 @@ func ucpKeyGenerate(privateKeyPath, publicKeyPath string) (e error) {
 }
 
 // GetPrivateKey returns a private key
-func GetPrivateKey(privateKeyPath string) (key crypto.PrivateKey, e error) {
+func GetPrivateKey(privateKeyPath string) (key *rsa.PrivateKey, e error) {
 
 	var buff []byte
 	if buff, e = ioutil.ReadFile(privateKeyPath); e != nil {

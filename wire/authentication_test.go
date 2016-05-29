@@ -10,7 +10,7 @@ func TestAuthenticationRequest(t *testing.T) {
 	request := &AuthenticationRequest{
 		UserName:   "foo",
 		MethodName: AuthenticationMethodPublicKey,
-		PublicKey:  "DEADBEEF",
+		PublicKey:  []byte("DEADBEEF"),
 	}
 
 	out, err := proto.Marshal(request)
@@ -24,7 +24,7 @@ func TestAuthenticationRequest(t *testing.T) {
 		t.Error("Did not expect error", err.Error())
 	}
 
-	if response.PublicKey != "DEADBEEF" {
+	if string(response.PublicKey) != "DEADBEEF" {
 		t.Error("What went in wasn't what came out.")
 	}
 

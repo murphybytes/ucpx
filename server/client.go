@@ -40,9 +40,12 @@ func newClient(ctx *context) (r respondent, e error) {
 // first message from client is unencrypted and contains their public key
 func (c *client) getInitialMessage() (clientAuthRequest *wire.AuthenticationRequest, e error) {
 	buffer := make([]byte, wire.ReadBufferSize)
-	if _, e = c.context.conn.Read(buffer); e != nil {
+	var readSize int
+	if readSize, e = c.context.conn.Read(buffer); e != nil {
 		return
 	}
+
+	c.context.logger.LogInfo("Read size ", readSize, " Buffer=", wire.ReadBufferSize)
 
 	if e = proto.Unmarshal(buffer, clientAuthRequest); e != nil {
 		return

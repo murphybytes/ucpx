@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	missingSourceMessage = "-from is required in client mode."
-	missingTargetMessage = "-to is required in client mode."
-	invalidLogLevel      = "Verbosity argument is not valid."
+	missingSourceMessage  = "-from is required in client mode."
+	missingTargetMessage  = "-to is required in client mode."
+	invalidLogLevel       = "-verbosity argument is not valid, must be one of INFO WARN ERROR"
+	missingPublicKeyPath  = "-public-key-path is required"
+	missingPrivateKeyPath = "-private-key-path is required"
 
 	logInfo  = "INFO"
 	logWarn  = "WARN"
@@ -112,11 +114,27 @@ func validateClientFlags(flags *Flags) (e error) {
 	return
 }
 
+func validateKeygenFlags(flags *Flags) error {
+	if flags.PrivateKeyPath == "" {
+		return errors.New(missingPrivateKeyPath)
+	}
+
+	if flags.PublicKeyPath == "" {
+		return errors.New(missingPublicKeyPath)
+	}
+
+	return nil
+}
+
 func validateFlags(flags *Flags) (e error) {
 	flags.LogLevel = strings.ToUpper(flags.LogLevel)
 	if !(flags.LogLevel == logInfo || flags.LogLevel == logWarn || flags.LogLevel == logError) {
 		e = errors.New(invalidLogLevel)
 		return
+	}
+
+	if flags.GenerateKeys {
+		return validateKeygenFlags(flags)
 	}
 
 	if flags.IsServer {

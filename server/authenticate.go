@@ -9,10 +9,12 @@ import (
 )
 
 func authenticate(r respondent, ctx *context) (e error) {
+	ctx.logger.LogInfo("Begin handshake")
 	var authRequest *wire.AuthenticationRequest
 	if authRequest, e = r.getInitialMessage(); e != nil {
 		return
 	}
+	ctx.logger.LogInfo("Handshake succeeds")
 
 	if authRequest.MethodName != wire.AuthenticationMethodPassword && authRequest.MethodName != wire.AuthenticationMethodPublicKey {
 		return errors.New(fmt.Sprint("Unknown auth request method - ", authRequest.MethodName))
