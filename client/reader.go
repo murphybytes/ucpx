@@ -26,5 +26,7 @@ func (r *reader) Read() (buff []byte, e error) {
 }
 
 func (r *reader) Close() {
-	r.ctx.close()
+	if r.ctx != nil {
+		r.ctx.close()
+	}
 }

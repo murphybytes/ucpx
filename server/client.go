@@ -1,29 +1,31 @@
 package server
 
 import (
-	"crypto"
+	"bytes"
+	"crypto/rsa"
+	"encoding/gob"
+	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
-	"golang.org/x/crypto/ssh"
 )
 
 type respondent interface {
-	getInitialMessage() (clientAuthRequest *wire.AuthenticationRequest, e error)
+	initializeSecureChannel() (e error)
 	getMessage() (msg proto.Message, e error)
 	respondMessage(msg proto.Message) (e error)
 }
 
 type client struct {
-	clientKey crypto.PublicKey
-	serverKey crypto.PrivateKey
+	clientKey *rsa.PublicKey
+	serverKey *rsa.PrivateKey
 	context   *context
 }
 
 func newClient(ctx *context) (r respondent, e error) {
 
-	var serverKey crypto.PrivateKey
+	var serverKey *rsa.PrivateKey
 	if serverKey, e = common.GetPrivateKey(ctx.flags.PrivateKeyPath); e != nil {
 		return
 	}
@@ -38,24 +40,40 @@ func newClient(ctx *context) (r respondent, e error) {
 }
 
 // first message from client is unencrypted and contains their public key
-func (c *client) getInitialMessage() (clientAuthRequest *wire.AuthenticationRequest, e error) {
-	buffer := make([]byte, wire.ReadBufferSize)
-	var readSize int
-	if readSize, e = c.context.conn.Read(buffer); e != nil {
+func (c *client) initializeSecureChannel() (e error) {
+	c.context.logger.LogInfo("Beginning public key exchange with client")
+	networkReadBuff := make([]byte, wire.ReadBufferSize)
+
+	if _, e = c.context.conn.Read(networkReadBuff); e != nil {
 		return
 	}
 
-	c.context.logger.LogInfo("Read size ", readSize, " Buffer=", wire.ReadBufferSize)
+	encoderBuffer := bytes.NewBuffer(networkReadBuff)
+	decoder := gob.NewDecoder(encoderBuffer)
 
-	if e = proto.Unmarshal(buffer, clientAuthRequest); e != nil {
+	c.clientKey = &rsa.PublicKey{
+		N: &big.Int{},
+	}
+
+	if e = decoder.Decode(c.clientKey); e != nil {
 		return
 	}
 
-	// set client public key that we will use to encrypt messages that go back to
-	// client
-	if c.clientKey, e = ssh.ParsePublicKey(clientAuthRequest.PublicKey); e != nil {
+	c.context.logger.LogInfo("Successfully received public key from client")
+
+	// we now have clients public key, so send server public key to client
+	encoderBuffer.Reset()
+	encoder := gob.NewEncoder(encoderBuffer)
+
+	if e = encoder.Encode(c.serverKey.PublicKey); e != nil {
 		return
 	}
+
+	if _, e = c.context.conn.Write(encoderBuffer.Bytes()); e != nil {
+		return
+	}
+
+	c.context.logger.LogInfo("Sent our public key to client")
 
 	return
 }
