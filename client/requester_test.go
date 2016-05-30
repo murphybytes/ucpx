@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"encoding/gob"
 	"math/big"
-	"testing"
 
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/udt.go/udt"
@@ -58,39 +57,39 @@ func newTestRequestor() (r requester) {
 	return
 }
 
-func TestInitializeSecureChannel(t *testing.T) {
-	var e error
-	req := newTestRequestor()
-	if e = req.initializeSecureChannel(); e != nil {
-		t.Fatal("expected success ", e.Error())
-	}
-
-	testMsg := "this is a test message"
-	var encrypted, decrypted []byte
-	srv := req.(*server)
-	conn := srv.conn.(*requestorTestConn)
-	// client to server
-	if encrypted, e = common.EncryptOAEP(srv.publicKey, []byte(testMsg)); e != nil {
-		t.Fatal("Client encryption failed ", e.Error())
-	}
-	if decrypted, e = common.DecryptOAEP(conn.serverPrivateKey, encrypted); e != nil {
-		t.Fatal("Server decryption failed ", e.Error())
-	}
-	if string(decrypted) != testMsg {
-		t.Fatal("client to server decrypted string should match")
-	}
-
-	// server to client
-	if encrypted, e = common.EncryptOAEP(conn.clientPublicKey, []byte(testMsg)); e != nil {
-		t.Fatal("Server encryption failed")
-	}
-
-	if decrypted, e = common.DecryptOAEP(srv.privateKey, encrypted); e != nil {
-		t.Fatal("Client decryption failed")
-	}
-
-	if string(decrypted) != testMsg {
-		t.Fatal("server to client decrypted string should match")
-	}
-
-}
+// func TestInitializeSecureChannel(t *testing.T) {
+// 	var e error
+// 	req := newTestRequestor()
+// 	if e = req.initializeSecureChannel(); e != nil {
+// 		t.Fatal("expected success ", e.Error())
+// 	}
+//
+// 	testMsg := "this is a test message"
+// 	var encrypted, decrypted []byte
+// 	srv := req.(*server)
+// 	conn := srv.conn.(*requestorTestConn)
+// 	// client to server
+// 	if encrypted, e = common.EncryptOAEP(srv.publicKey, []byte(testMsg)); e != nil {
+// 		t.Fatal("Client encryption failed ", e.Error())
+// 	}
+// 	if decrypted, e = common.DecryptOAEP(conn.serverPrivateKey, encrypted); e != nil {
+// 		t.Fatal("Server decryption failed ", e.Error())
+// 	}
+// 	if string(decrypted) != testMsg {
+// 		t.Fatal("client to server decrypted string should match")
+// 	}
+//
+// 	// server to client
+// 	if encrypted, e = common.EncryptOAEP(conn.clientPublicKey, []byte(testMsg)); e != nil {
+// 		t.Fatal("Server encryption failed")
+// 	}
+//
+// 	if decrypted, e = common.DecryptOAEP(srv.privateKey, encrypted); e != nil {
+// 		t.Fatal("Client decryption failed")
+// 	}
+//
+// 	if string(decrypted) != testMsg {
+// 		t.Fatal("server to client decrypted string should match")
+// 	}
+//
+// }

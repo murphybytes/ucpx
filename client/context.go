@@ -18,16 +18,17 @@ type context struct {
 }
 
 func getReadContext(flags *common.Flags) (c *context, e error) {
-	return getContext(flags.From, flags)
+
+	return getContext(flags.From, flags, true)
 }
 
 func getWriteContext(flags *common.Flags) (c *context, e error) {
-	return getContext(flags.To, flags)
+	return getContext(flags.To, flags, false)
 }
 
-func getContext(filespec string, flags *common.Flags) (c *context, e error) {
+func getContext(filespec string, flags *common.Flags, read bool) (c *context, e error) {
 	var fi *fileInfo
-	fi, e = newFileInfo(filespec)
+	fi, e = newFileInfo(filespec, read)
 
 	if e != nil {
 		return

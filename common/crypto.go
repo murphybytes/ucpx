@@ -1,18 +1,19 @@
 package common
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/gob"
 	"encoding/pem"
 	"errors"
 	"hash"
 	"io/ioutil"
 	"os"
-
-	"golang.org/x/crypto/ssh"
 )
 
 // KeyBufferFetcher returns an array of bytes containing a crypto key
@@ -26,8 +27,8 @@ func ucpKeyGenerate(privateKeyPath, publicKeyPath string) (e error) {
 		return
 	}
 
-	var publicKey *rsa.PublicKey
-	publicKey = &privateKey.PublicKey
+	var publicKey rsa.PublicKey
+	publicKey = privateKey.PublicKey
 
 	var pemkey = &pem.Block{
 		Type:  "RSA PRIVATE KEY",
@@ -44,17 +45,33 @@ func ucpKeyGenerate(privateKeyPath, publicKeyPath string) (e error) {
 		return
 	}
 
-	var sshPublicKey ssh.PublicKey
-	if sshPublicKey, e = ssh.NewPublicKey(publicKey); e != nil {
+	var encodedKeyBuffer []byte
+	if encodedKeyBuffer, e = CreateBase64EncodedPublicKey(publicKey); e != nil {
 		return
 	}
 
-	if e = ioutil.WriteFile(publicKeyPath, ssh.MarshalAuthorizedKey(sshPublicKey), 0655); e != nil {
+	if e = ioutil.WriteFile(publicKeyPath, encodedKeyBuffer, 0655); e != nil {
 		return
 	}
 
 	return
 
+}
+
+// CreateBase64EncodedPublicKey returns a textual representation of the pubilc
+// key suitable for authorized_keys files
+func CreateBase64EncodedPublicKey(key rsa.PublicKey) (encodedKey []byte, e error) {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	if e = encoder.Encode(key); e != nil {
+		return
+	}
+
+	encodedKey = make([]byte, base64.StdEncoding.EncodedLen(buffer.Len()))
+	base64.StdEncoding.Encode(encodedKey, buffer.Bytes())
+	encodedKey = append(encodedKey, '\n')
+
+	return
 }
 
 // GetPrivateKey returns a private key
@@ -73,25 +90,6 @@ func GetPrivateKey(privateKeyPath string) (key *rsa.PrivateKey, e error) {
 
 	return
 
-}
-
-// GetMarshalPublicKey gets public key in wire format
-func GetMarshalPublicKey(privateKeyPath string) (keyBuff []byte, e error) {
-	var cpk crypto.PrivateKey
-	if cpk, e = GetPrivateKey(privateKeyPath); e != nil {
-		return
-	}
-
-	var rsaPrivateKey *rsa.PrivateKey
-	rsaPrivateKey = cpk.(*rsa.PrivateKey)
-
-	var sshPublicKey ssh.PublicKey
-	if sshPublicKey, e = ssh.NewPublicKey(rsaPrivateKey.Public()); e != nil {
-		return
-	}
-
-	keyBuff = sshPublicKey.Marshal()
-	return
 }
 
 // EncryptOAEP encrypts a buffer

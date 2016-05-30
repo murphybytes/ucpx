@@ -60,7 +60,7 @@ func NewFlags() (flags *Flags) {
 	flag.StringVar(&flags.Host, "host", "127.0.0.1", "Server Mode. The host or interface the server listens on")
 	flag.StringVar(&flags.LogLevel, "verbosity", logWarn, "Log level. INFO|WARN|ERROR")
 	flag.StringVar(&flags.PrivateKeyPath, "private-key-path", getDefaultKeyPath("ucp.pem"), "Path to private key")
-	flag.StringVar(&flags.PublicKeyPath, "public-key-path", getDefaultKeyPath("id_rsa.pub"), "Path to public key")
+	flag.StringVar(&flags.PublicKeyPath, "public-key-path", getDefaultKeyPath("key.pub"), "Path to public key")
 	flag.BoolVar(&flags.GenerateKeys, "generate-keys", false, "Generate key pair and exit")
 	flag.BoolVar(&flags.Help, "help", false, "Prints Usage")
 	flag.Parse()

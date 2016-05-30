@@ -6,15 +6,14 @@ import (
 	"encoding/gob"
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
 )
 
 type respondent interface {
 	initializeSecureChannel() (e error)
-	getMessage() (msg proto.Message, e error)
-	respondMessage(msg proto.Message) (e error)
+	getMessage() ([]byte, error)
+	sendMessage([]byte) (e error)
 }
 
 type client struct {
@@ -43,29 +42,45 @@ func newClient(ctx *context) (r respondent, e error) {
 func (c *client) initializeSecureChannel() (e error) {
 	c.context.logger.LogInfo("Beginning public key exchange with client")
 	networkReadBuff := make([]byte, wire.ReadBufferSize)
+	var readBytes int
 
-	if _, e = c.context.conn.Read(networkReadBuff); e != nil {
+	if readBytes, e = c.context.conn.Read(networkReadBuff); e != nil {
 		return
 	}
 
-	encoderBuffer := bytes.NewBuffer(networkReadBuff)
+	encoderBuffer := bytes.NewBuffer(networkReadBuff[:readBytes])
 	decoder := gob.NewDecoder(encoderBuffer)
 
-	c.clientKey = &rsa.PublicKey{
-		N: &big.Int{},
+	authRequest := wire.AuthenticationRequest{
+		PublicKey: rsa.PublicKey{
+			N: &big.Int{},
+		},
 	}
 
-	if e = decoder.Decode(c.clientKey); e != nil {
+	if e = decoder.Decode(&authRequest); e != nil {
 		return
 	}
 
-	c.context.logger.LogInfo("Successfully received public key from client")
+	c.context.logger.LogInfo("Successfully received authRequest for ", authRequest.UserName)
+
+	// TODO: check authorization here
+
+	c.clientKey = &authRequest.PublicKey
 
 	// we now have clients public key, so send server public key to client
+
+	authResponse := wire.AutenticationResponse{
+		UserName:                    authRequest.UserName,
+		PublicKey:                   c.serverKey.PublicKey,
+		AllowedAuthenticationMethod: authRequest.RequestedAuthenticationMethod,
+		Status:     wire.OK,
+		StatusText: "OK",
+	}
+
 	encoderBuffer.Reset()
 	encoder := gob.NewEncoder(encoderBuffer)
 
-	if e = encoder.Encode(c.serverKey.PublicKey); e != nil {
+	if e = encoder.Encode(authResponse); e != nil {
 		return
 	}
 
@@ -78,31 +93,25 @@ func (c *client) initializeSecureChannel() (e error) {
 	return
 }
 
-func (c *client) getMessage() (msg proto.Message, e error) {
+func (c *client) getMessage() (msg []byte, e error) {
 	buffer := make([]byte, wire.ReadBufferSize)
-	if _, e = c.context.conn.Read(buffer); e != nil {
+	var read int
+	if read, e = c.context.conn.Read(buffer); e != nil {
 		return
 	}
 
-	var decrypted []byte
-
-	if decrypted, e = common.DecryptOAEP(c.serverKey, buffer); e != nil {
+	if msg, e = common.DecryptOAEP(c.serverKey, buffer[:read]); e != nil {
 		return
 	}
 
-	e = proto.Unmarshal(decrypted, msg)
-	return
+	return msg, nil
 
 }
 
-func (c *client) respondMessage(msg proto.Message) (e error) {
-	var unencrypted []byte
-	if unencrypted, e = proto.Marshal(msg); e != nil {
-		return
-	}
+func (c *client) sendMessage(msg []byte) (e error) {
 
 	var encrypted []byte
-	if encrypted, e = common.EncryptOAEP(c.clientKey, unencrypted); e != nil {
+	if encrypted, e = common.EncryptOAEP(c.clientKey, msg); e != nil {
 		return
 	}
 

@@ -4,22 +4,23 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"encoding/gob"
+	"errors"
 	"math/big"
 	"net"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
 )
 
 type requester interface {
-	initializeSecureChannel() (e error)
-	get(request proto.Message) (response proto.Message, e error)
+	initializeSecureChannel() (*wire.AutenticationResponse, error)
+	get([]byte) ([]byte, error)
 	close()
 }
 
 type server struct {
 	conn       net.Conn
+	context    *context
 	publicKey  *rsa.PublicKey
 	privateKey *rsa.PrivateKey
 }
@@ -32,6 +33,7 @@ func newServer(conn net.Conn, ctx *context) (r requester, e error) {
 	}
 
 	r = &server{
+		context:    ctx,
 		conn:       conn,
 		privateKey: privateKey,
 	}
@@ -39,11 +41,18 @@ func newServer(conn net.Conn, ctx *context) (r requester, e error) {
 }
 
 // All we are doing here is exchanging public keys
-func (s *server) initializeSecureChannel() (e error) {
+func (s *server) initializeSecureChannel() (authResponse *wire.AutenticationResponse, e error) {
 
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
-	if e = encoder.Encode(s.privateKey.PublicKey); e != nil {
+
+	authRequest := &wire.AuthenticationRequest{
+		UserName:                      s.context.fileInfo.user,
+		RequestedAuthenticationMethod: wire.AuthenticationMethodPublicKey,
+		PublicKey:                     s.privateKey.PublicKey,
+	}
+
+	if e = encoder.Encode(authRequest); e != nil {
 		return
 	}
 
@@ -52,30 +61,34 @@ func (s *server) initializeSecureChannel() (e error) {
 	}
 
 	response := make([]byte, wire.ReadBufferSize)
-	if _, e = s.conn.Read(response); e != nil {
+	var read int
+	if read, e = s.conn.Read(response); e != nil {
 		return
 	}
 
-	decoder := gob.NewDecoder(bytes.NewBuffer(response))
+	decoder := gob.NewDecoder(bytes.NewBuffer(response[:read]))
 
-	s.publicKey = &rsa.PublicKey{
-		N: &big.Int{},
+	authResponse = &wire.AutenticationResponse{
+		PublicKey: rsa.PublicKey{
+			N: &big.Int{},
+		},
 	}
 
-	e = decoder.Decode(s.publicKey)
+	if e = decoder.Decode(authResponse); e != nil {
+		return
+	}
+
+	if authResponse.Status != wire.OK {
+		e = errors.New(authResponse.StatusText)
+		return
+	}
 
 	return
 }
 
-func (s *server) get(request proto.Message) (response proto.Message, e error) {
-	var requestBuffer []byte
-
-	if requestBuffer, e = proto.Marshal(request); e != nil {
-		return
-	}
-
+func (s *server) get(request []byte) (response []byte, e error) {
 	var encryptedRequestBuffer []byte
-	if encryptedRequestBuffer, e = common.EncryptOAEP(s.publicKey, requestBuffer); e != nil {
+	if encryptedRequestBuffer, e = common.EncryptOAEP(s.publicKey, request); e != nil {
 		return
 	}
 
@@ -84,20 +97,17 @@ func (s *server) get(request proto.Message) (response proto.Message, e error) {
 	}
 
 	encryptedResponseBuffer := make([]byte, wire.ReadBufferSize)
-	if _, e = s.conn.Read(encryptedResponseBuffer); e != nil {
+	var read int
+	if read, e = s.conn.Read(encryptedResponseBuffer); e != nil {
 		return
 	}
 
 	var responseBuffer []byte
-	if responseBuffer, e = common.DecryptOAEP(s.privateKey, encryptedResponseBuffer); e != nil {
+	if responseBuffer, e = common.DecryptOAEP(s.privateKey, encryptedResponseBuffer[:read]); e != nil {
 		return
 	}
 
-	if e = proto.Unmarshal(responseBuffer, response); e != nil {
-		return
-	}
-
-	return
+	return responseBuffer, nil
 
 }
 

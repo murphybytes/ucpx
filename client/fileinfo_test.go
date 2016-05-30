@@ -7,7 +7,7 @@ import (
 
 func TestNewFileInfo(t *testing.T) {
 
-	fileInfo, _ := newFileInfo("john@foo.com:/home/john/source")
+	fileInfo, _ := newFileInfo("john@foo.com:/home/john/source", true)
 	if fileInfo == nil {
 		t.Error("Expect file info not to be nil")
 	}
@@ -27,10 +27,14 @@ func TestNewFileInfo(t *testing.T) {
 	if fileInfo.port != 9191 {
 		t.Errorf("Expected port to be 9191 but got %d", fileInfo.port)
 	}
+
+	if fileInfo.read != true {
+		t.Error("Expecting read to be true")
+	}
 }
 
 func TestNewFileInfoExplicitPort(t *testing.T) {
-	fi, e := newFileInfo("john@foo.com:1234:/home/xxx")
+	fi, e := newFileInfo("john@foo.com:1234:/home/xxx", false)
 	if e != nil {
 		t.Error("Expected error to be nil")
 	}
@@ -55,15 +59,19 @@ func TestNewFileInfoExplicitPort(t *testing.T) {
 		t.Errorf("Expected port to be 1234 but got %d", fi.port)
 	}
 
+	if fi.read {
+		t.Error("Expecting read to be false")
+	}
+
 }
 
 func TestErrors(t *testing.T) {
-	_, e := newFileInfo("john:/home/xxx")
+	_, e := newFileInfo("john:/home/xxx", true)
 	if e == nil {
 		t.Error("Missing host should have caused error")
 	}
 
-	_, e = newFileInfo("jam@foo.com::/home/xxx")
+	_, e = newFileInfo("jam@foo.com::/home/xxx", true)
 	if e == nil {
 		t.Error("Missing port should have caused error")
 	}
@@ -71,7 +79,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestNewFileNoUserHost(t *testing.T) {
-	fi, e := newFileInfo("/home/xxx")
+	fi, e := newFileInfo("/home/xxx", true)
 	u, _ := user.Current()
 	if e != nil {
 		t.Error("Didn't expect error")

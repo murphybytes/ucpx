@@ -9,3 +9,11 @@ const (
 	// ReadBufferSize size of buffer read from network connection
 	ReadBufferSize = 0x2800
 )
+
+type ResponseCode int
+
+const (
+	OK ResponseCode = iota
+	Error
+	MethodNotAllowed
+)

@@ -5,5 +5,10 @@ func authenticate(r respondent, ctx *context) (e error) {
 		return
 	}
 
+	// var buffer []byte
+	// if buffer, e = r.getMessage(); e != nil {
+	// 	return
+	// }
+
 	return
 }

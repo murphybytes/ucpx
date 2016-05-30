@@ -16,6 +16,7 @@ type fileInfo struct {
 	port  int
 	path  string
 	local bool
+	read  bool
 }
 
 func parseUserHost(userHost string) (user, host string, e error) {
@@ -35,9 +36,10 @@ func parseUserHost(userHost string) (user, host string, e error) {
 // [user@host[:port]:]/path/to/file
 // is optional user@host is not supplied /path/to/file is assumed
 // to be local with the current user
-func newFileInfo(filespec string) (fi *fileInfo, e error) {
+func newFileInfo(filespec string, read bool) (fi *fileInfo, e error) {
 	fi = &fileInfo{
 		port: common.DefaultPort,
+		read: read,
 	}
 
 	parts := strings.Split(filespec, ":")
