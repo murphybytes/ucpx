@@ -2,9 +2,14 @@ package server
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/gob"
+	"fmt"
 	"math/big"
+	"os/user"
 
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
@@ -12,26 +17,25 @@ import (
 
 type respondent interface {
 	initializeSecureChannel() (e error)
+	initializeTransfer() (e error)
 	getMessage() ([]byte, error)
 	sendMessage([]byte) (e error)
 }
 
 type client struct {
-	clientKey *rsa.PublicKey
-	serverKey *rsa.PrivateKey
-	context   *context
+	clientKey    *rsa.PublicKey
+	serverKey    *rsa.PrivateKey
+	context      *context
+	transferInfo *wire.FileTransferRequest
+	aesKey       cipher.Block
+	startingIV   []byte
 }
 
 func newClient(ctx *context) (r respondent, e error) {
 
-	var serverKey *rsa.PrivateKey
-	if serverKey, e = common.GetPrivateKey(ctx.flags.PrivateKeyPath); e != nil {
-		return
-	}
-
 	r = &client{
-		serverKey: serverKey,
-		context:   ctx,
+
+		context: ctx,
 	}
 
 	return
@@ -63,6 +67,10 @@ func (c *client) initializeSecureChannel() (e error) {
 
 	c.context.logger.LogInfo("Successfully received authRequest for ", authRequest.UserName)
 
+	if c.serverKey, e = getUserPrivateKey(authRequest.UserName); e != nil {
+		return
+	}
+
 	// TODO: check authorization here
 
 	c.clientKey = &authRequest.PublicKey
@@ -93,6 +101,57 @@ func (c *client) initializeSecureChannel() (e error) {
 	return
 }
 
+/////////////////////////////////////////////////
+// exchange keys
+func (c *client) initializeTransfer() (e error) {
+
+	var clientMsg []byte
+	if clientMsg, e = c.getMessage(); e != nil {
+		return
+	}
+
+	decoderBuffer := bytes.NewBuffer(clientMsg)
+	decoder := gob.NewDecoder(decoderBuffer)
+
+	if e = decoder.Decode(c.transferInfo); e != nil {
+		return
+	}
+
+	// generate random key and initialization vector for aes-256
+	keylen := 32
+	keybuff := make([]byte, keylen)
+	if _, e = rand.Read(keybuff); e != nil {
+		return
+	}
+
+	c.aesKey = aes.NewCipher(keybuff)
+
+	c.startingIV = make([]byte, keylen)
+	if _, e = rand.Read(c.startingIV); e != nil {
+		return
+	}
+
+	fileTxfrResponse := FileTransferResponse{
+		Status:               wire.OK,
+		StatusText:           "OK",
+		AESKey:               keybuff,
+		InitializationVector: c.startingIV,
+	}
+
+	var encodeBuff bytes.Buffer
+	encoder := gob.NewEncoder(&encodeBuff)
+	if e = encoder.Encoder(fileTxfrResponse); e != nil {
+		return
+	}
+
+	if e = c.sendMessage(encodeBuff.Bytes()); e != nil {
+		return
+	}
+
+	return
+
+}
+
 func (c *client) getMessage() (msg []byte, e error) {
 	buffer := make([]byte, wire.ReadBufferSize)
 	var read int
@@ -118,4 +177,18 @@ func (c *client) sendMessage(msg []byte) (e error) {
 	_, e = c.context.conn.Write(encrypted)
 
 	return
+}
+
+func getUserPrivateKey(userName string) (key *rsa.PrivateKey, e error) {
+	var u *user.User
+	if u, e = user.Lookup(userName); e != nil {
+		return
+	}
+
+	privateKeyPath := fmt.Sprint(u.HomeDir, "/.ucp/ucp.pem")
+
+	key, e = common.GetPrivateKey(privateKeyPath)
+
+	return
+
 }
