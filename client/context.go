@@ -8,7 +8,9 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"os"
 
 	"github.com/murphybytes/ucp/common"
 	"github.com/murphybytes/ucp/wire"
@@ -20,6 +22,7 @@ type context struct {
 	flags                *common.Flags
 	logger               common.Logger
 	server               requester
+	file                 *os.File
 	publicKey            crypto.PublicKey
 	aesKey               cipher.Block
 	initializationVector []byte
@@ -54,6 +57,7 @@ func getContext(filespec string, flags *common.Flags, read bool) (c *context, e 
 	}
 
 	if !fi.local {
+		// remote context read or write encrypted bytes to a socket
 		var connectString string
 		connectString, e = fi.getConnectString()
 		logger.LogInfo("Client connecting to ", connectString)
@@ -76,6 +80,18 @@ func getContext(filespec string, flags *common.Flags, read bool) (c *context, e 
 
 		e = initTransfer(ctx)
 
+	} else {
+		// local context read or write to a file
+		if ctx.fileInfo.read {
+			if ctx.file, e = os.Open(fi.path); e != nil {
+				return
+			}
+		} else {
+			if ctx.file, e = os.Create(fi.path); e != nil {
+				return
+			}
+
+		}
 	}
 
 	return
@@ -109,8 +125,8 @@ func initTransfer(ctx *context) (e error) {
 
 	decoderBuffer := bytes.NewBuffer(response)
 	decoder := gob.NewDecoder(decoderBuffer)
-	var txfrResponse *wire.FileTransferResponse
-	if e = decoder.Decode(txfrResponse); e != nil {
+	var txfrResponse wire.FileTransferResponse
+	if e = decoder.Decode(&txfrResponse); e != nil {
 		return
 	}
 
@@ -128,8 +144,28 @@ func initTransfer(ctx *context) (e error) {
 
 }
 
-func (c *context) close() {
+func (c *context) getIO() io.ReadWriteCloser {
 	if c.server != nil {
-		c.server.close()
+		return c.server
 	}
+
+	return c.file
+}
+
+func (c *context) Read(p []byte) (n int, e error) {
+	reader := c.getIO()
+	return reader.Read(p)
+
+}
+
+func (c *context) Write(p []byte) (n int, e error) {
+	writer := c.getIO()
+	return writer.Write(p)
+}
+
+//func (c *context)
+func (c *context) Close() error {
+	closer := c.getIO()
+	return closer.Close()
+
 }

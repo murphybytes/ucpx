@@ -1,6 +1,7 @@
 package client
 
 import (
+	"io"
 	"log"
 
 	"github.com/murphybytes/ucp/common"
@@ -20,8 +21,8 @@ func New(flags *common.Flags) common.Application {
 
 // Run the client application
 func (c *Client) Run() (e error) {
-	var reader common.Reader
-	var writer common.Writer
+	var reader io.ReadCloser
+	var writer io.WriteCloser
 
 	if reader, e = newReader(c.flags); e != nil {
 		log.Fatal(e.Error())

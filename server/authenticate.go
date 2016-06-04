@@ -1,6 +1,6 @@
 package server
 
-func authenticate(r respondent, ctx *context) (e error) {
+func authenticate(r respondent) (e error) {
 	if e = r.initializeSecureChannel(); e != nil {
 		return
 	}

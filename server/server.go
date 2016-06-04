@@ -73,7 +73,7 @@ func handleConnection(ctx context) {
 		ctx.logger.LogError("Client creation failed -", e.Error())
 	}
 
-	if e = authenticate(client, &ctx); e != nil {
+	if e = authenticate(client); e != nil {
 		ctx.logger.LogError("Authentication failed -", e.Error())
 		return
 	}

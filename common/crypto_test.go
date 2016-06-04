@@ -2,6 +2,9 @@ package common
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
@@ -18,6 +21,41 @@ func CreateTestDirectory() (dir string, e error) {
 
 func DeleteTestDirectory(dir string) {
 	os.RemoveAll(dir)
+}
+
+func TestAESEncryption(t *testing.T) {
+	var e error
+	original := "I am an unencrypted string"
+	key := make([]byte, 32)
+
+	if _, e = rand.Read(key); e != nil {
+		t.Fatal("AES key gen failed -", e.Error())
+	}
+
+	iv := make([]byte, 16)
+
+	if _, e = rand.Read(iv); e != nil {
+		t.Fatal("AES iv gen failed -", e.Error())
+	}
+
+	var block cipher.Block
+	if block, e = aes.NewCipher(key); e != nil {
+		t.Fatal("Could not create cipher block ", e.Error())
+	}
+
+	var encrypted []byte
+
+	encrypted = EncryptAES(block, iv, []byte(original))
+
+	var decrypted []byte
+
+	decrypted = DecryptAES(block, iv, encrypted)
+
+	output := string(decrypted)
+	if output != original {
+		t.Fatal("AESEncryption failed. We expected ", original, " but got ", output)
+	}
+
 }
 
 func TestEncryption(t *testing.T) {

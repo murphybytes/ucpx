@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"crypto"
+	"crypto/cipher"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
@@ -119,4 +120,23 @@ func DecryptOAEP(privateKey crypto.PrivateKey, encrypted []byte) (decrypted []by
 	}
 
 	return
+}
+
+// EncryptAES Encrypt a string with symmetric encryption
+func EncryptAES(block cipher.Block, iv []byte, unencrypted []byte) (encrypted []byte) {
+
+	encrypter := cipher.NewCFBEncrypter(block, iv)
+	encrypted = make([]byte, len(unencrypted))
+	encrypter.XORKeyStream(encrypted, unencrypted)
+	return encrypted
+}
+
+// DecryptAES decrypts a a string with symmetric encryption
+func DecryptAES(block cipher.Block, iv []byte, encrypted []byte) (unencrypted []byte) {
+
+	decrypter := cipher.NewCFBDecrypter(block, iv)
+	unencrypted = make([]byte, len(encrypted))
+	decrypter.XORKeyStream(unencrypted, encrypted)
+	return unencrypted
+
 }

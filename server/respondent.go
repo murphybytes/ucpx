@@ -104,6 +104,7 @@ func (c *client) initializeSecureChannel() (e error) {
 /////////////////////////////////////////////////
 // exchange keys
 func (c *client) initializeTransfer() (e error) {
+	c.context.logger.LogInfo("Preparing for file transfer")
 
 	var clientMsg []byte
 	if clientMsg, e = c.getMessage(); e != nil {
@@ -113,10 +114,13 @@ func (c *client) initializeTransfer() (e error) {
 	decoderBuffer := bytes.NewBuffer(clientMsg)
 	decoder := gob.NewDecoder(decoderBuffer)
 
+	c.transferInfo = &wire.FileTransferRequest{}
+
 	if e = decoder.Decode(c.transferInfo); e != nil {
 		return
 	}
 
+	c.context.logger.LogInfo("Recieved trasfer message preparing AES key")
 	// generate random key and initialization vector for aes-256
 	keylen := 32
 	keybuff := make([]byte, keylen)
@@ -124,14 +128,16 @@ func (c *client) initializeTransfer() (e error) {
 		return
 	}
 
-	c.aesKey = aes.NewCipher(keybuff)
+	if c.aesKey, e = aes.NewCipher(keybuff); e != nil {
+		return
+	}
 
-	c.startingIV = make([]byte, keylen)
+	c.startingIV = make([]byte, aes.BlockSize)
 	if _, e = rand.Read(c.startingIV); e != nil {
 		return
 	}
 
-	fileTxfrResponse := FileTransferResponse{
+	fileTxfrResponse := wire.FileTransferResponse{
 		Status:               wire.OK,
 		StatusText:           "OK",
 		AESKey:               keybuff,
@@ -140,13 +146,15 @@ func (c *client) initializeTransfer() (e error) {
 
 	var encodeBuff bytes.Buffer
 	encoder := gob.NewEncoder(&encodeBuff)
-	if e = encoder.Encoder(fileTxfrResponse); e != nil {
+	if e = encoder.Encode(fileTxfrResponse); e != nil {
 		return
 	}
 
 	if e = c.sendMessage(encodeBuff.Bytes()); e != nil {
 		return
 	}
+
+	c.context.logger.LogInfo("Sent AES key to client")
 
 	return
 

@@ -49,6 +49,8 @@ go install github.com/murphybytes/ucp
 
 kill_ucp_server
 
+# TODO: override client and server home environment var so that they can have
+# their own keys.
 if [ ! -d "$HOME/.ucp" ]; then
   echo "No encryption keys found, generating keys"
   mkdir "$HOME/.ucp"

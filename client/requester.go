@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"encoding/gob"
 	"errors"
+	"io"
 	"math/big"
 	"net"
 
@@ -15,7 +16,9 @@ import (
 type requester interface {
 	initializeSecureChannel() (*wire.AutenticationResponse, error)
 	get([]byte) ([]byte, error)
-	close()
+	Write([]byte) (int, error)
+	Read([]byte) (int, error)
+	Close() error
 }
 
 type server struct {
@@ -23,6 +26,7 @@ type server struct {
 	context    *context
 	publicKey  *rsa.PublicKey
 	privateKey *rsa.PrivateKey
+	buffer     []byte
 }
 
 func newServer(conn net.Conn, ctx *context) (r requester, e error) {
@@ -36,6 +40,7 @@ func newServer(conn net.Conn, ctx *context) (r requester, e error) {
 		context:    ctx,
 		conn:       conn,
 		privateKey: privateKey,
+		buffer:     make([]byte, wire.TxferBufferSize),
 	}
 	return
 }
@@ -83,10 +88,13 @@ func (s *server) initializeSecureChannel() (authResponse *wire.AutenticationResp
 		return
 	}
 
+	s.publicKey = &authResponse.PublicKey
+
 	return
 }
 
 func (s *server) get(request []byte) (response []byte, e error) {
+	//	fmt.Printf("Public Key %q\n", s.publicKey)
 	var encryptedRequestBuffer []byte
 	if encryptedRequestBuffer, e = common.EncryptOAEP(s.publicKey, request); e != nil {
 		return
@@ -111,8 +119,48 @@ func (s *server) get(request []byte) (response []byte, e error) {
 
 }
 
-func (s *server) close() {
-	if s.conn != nil {
-		s.conn.Close()
+func (s *server) Read(buff []byte) (n int, e error) {
+
+	if n, e = s.conn.Read(s.buffer); e != nil {
+		return
 	}
+
+	decrypted := common.DecryptAES(
+		s.context.aesKey,
+		s.context.initializationVector,
+		s.buffer[:n],
+	)
+
+	decoderBuff := bytes.NewBuffer(decrypted)
+	decoder := gob.NewDecoder(decoderBuff)
+	packet := &wire.ReadPacket{}
+	if e = decoder.Decode(packet); e != nil {
+		return
+	}
+
+	if packet.Status == wire.OK {
+		s.context.initializationVector = packet.NextInitializationVector
+		n = copy(buff, packet.Buffer)
+	} else if packet.Status == wire.EOF {
+		e = io.EOF
+		return
+	} else {
+		e = errors.New(packet.StatusText)
+		return
+	}
+
+	return
+}
+
+func (s *server) Write(buff []byte) (n int, e error) {
+	// send bytes using iv vector that we have to encrypt, server
+	// sends us back a status and our next iv
+	return
+}
+
+func (s *server) Close() (e error) {
+	if s.conn != nil {
+		e = s.conn.Close()
+	}
+	return
 }
