@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"math/big"
 	"os/user"
@@ -20,6 +21,7 @@ type respondent interface {
 	initializeTransfer() (e error)
 	getMessage() ([]byte, error)
 	sendMessage([]byte) (e error)
+	getTransferOperation() (op func() (e error), e error)
 }
 
 type client struct {
@@ -40,6 +42,27 @@ func newClient(ctx *context) (r respondent, e error) {
 
 	return
 
+}
+
+func (c *client) getTransferOperation() (op func() (e error), e error) {
+	return func() (e error) {
+		txfrContext := &transferContext{
+			fileTransferRequest:  c.transferInfo,
+			block:                c.aesKey,
+			initializationVector: startingIV,
+			conn:                 c.context.conn,
+		}
+
+		if c.transferInfo.Transfer == wire.ClientReading {
+			return readFromClient(txfrContext)
+		}
+
+		if c.transferInfo.Transfer == wire.ClientWriting {
+			return writeToClient(txfrContext)
+		}
+
+		return nil, errors.New("Unsupported operation.")
+	}
 }
 
 // first message from client is unencrypted and contains their public key

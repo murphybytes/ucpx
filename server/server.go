@@ -78,4 +78,9 @@ func handleConnection(ctx context) {
 		return
 	}
 
+	transfer := client.getTransferOperation()
+	if e = transfer(); e != nil {
+		return
+	}
+
 }
