@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"crypto"
+	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
 	"crypto/rand"
@@ -15,6 +16,13 @@ import (
 	"hash"
 	"io/ioutil"
 	"os"
+)
+
+// Defines key sizes and initialization vector size for AES
+// encryption
+const (
+	IVBlockSize = 16
+	AESKeySize  = 32
 )
 
 // KeyBufferFetcher returns an array of bytes containing a crypto key
@@ -120,6 +128,21 @@ func DecryptOAEP(privateKey crypto.PrivateKey, encrypted []byte) (decrypted []by
 	}
 
 	return
+}
+
+// NewCipherBlock returns a key that can be used for AES
+// encryption
+func NewCipherBlock() (block cipher.Block, e error) {
+	key := make([]byte, AESKeySize)
+
+	if _, e = rand.Read(key); e != nil {
+		return
+	}
+
+	block, e = aes.NewCipher(key)
+
+	return
+
 }
 
 // EncryptAES Encrypt a string with symmetric encryption

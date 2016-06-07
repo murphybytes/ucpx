@@ -25,4 +25,6 @@ const (
 	MethodNotAllowed
 	// EOF end of file, no more bytes available to be read
 	EOF
+	// More more data to read from client
+	More
 )

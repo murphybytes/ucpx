@@ -7,8 +7,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/gob"
-	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"os/user"
 
@@ -21,7 +21,7 @@ type respondent interface {
 	initializeTransfer() (e error)
 	getMessage() ([]byte, error)
 	sendMessage([]byte) (e error)
-	getTransferOperation() (op func() (e error), e error)
+	getTransferOperation() func() (e error)
 }
 
 type client struct {
@@ -44,24 +44,29 @@ func newClient(ctx *context) (r respondent, e error) {
 
 }
 
-func (c *client) getTransferOperation() (op func() (e error), e error) {
+func (c *client) getTransferOperation() func() (e error) {
 	return func() (e error) {
 		txfrContext := &transferContext{
-			fileTransferRequest:  c.transferInfo,
 			block:                c.aesKey,
-			initializationVector: startingIV,
+			initializationVector: c.startingIV,
 			conn:                 c.context.conn,
 		}
 
-		if c.transferInfo.Transfer == wire.ClientReading {
-			return readFromClient(txfrContext)
+		if c.transferInfo.Transfer == wire.ClientWriting {
+			var outFile io.WriteCloser
+			if outFile, e = common.Create(c.transferInfo.FilePath, c.transferInfo.UserName); e != nil {
+				return
+			}
+			outFile.Close()
+			return readRemoteWriteLocal(txfrContext, outFile)
 		}
 
 		if c.transferInfo.Transfer == wire.ClientWriting {
-			return writeToClient(txfrContext)
+			//TODO: OPEN FILE
+			return readLocalWriteRemote(txfrContext)
 		}
 
-		return nil, errors.New("Unsupported operation.")
+		return nil
 	}
 }
 

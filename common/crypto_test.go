@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
@@ -26,12 +25,6 @@ func DeleteTestDirectory(dir string) {
 func TestAESEncryption(t *testing.T) {
 	var e error
 	original := "I am an unencrypted string"
-	key := make([]byte, 32)
-
-	if _, e = rand.Read(key); e != nil {
-		t.Fatal("AES key gen failed -", e.Error())
-	}
-
 	iv := make([]byte, 16)
 
 	if _, e = rand.Read(iv); e != nil {
@@ -39,7 +32,7 @@ func TestAESEncryption(t *testing.T) {
 	}
 
 	var block cipher.Block
-	if block, e = aes.NewCipher(key); e != nil {
+	if block, e = NewCipherBlock(); e != nil {
 		t.Fatal("Could not create cipher block ", e.Error())
 	}
 
