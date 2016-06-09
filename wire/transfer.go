@@ -24,3 +24,17 @@ type ClientReadResponse struct {
 	Status                   ResponseCode
 	StatusText               string
 }
+
+// ClientDataRequest sent from client to request a data packet
+type ClientDataRequest struct {
+	Status     ResponseCode
+	StatusText string
+}
+
+// ClientDataResponse respond to ClientDataRequest with data
+type ClientDataResponse struct {
+	NextInitializationVector []byte
+	Data                     []byte
+	Status                   ResponseCode
+	StatusText               string
+}

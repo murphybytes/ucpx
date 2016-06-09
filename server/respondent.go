@@ -50,6 +50,7 @@ func (c *client) getTransferOperation() func() (e error) {
 			block:                c.aesKey,
 			initializationVector: c.startingIV,
 			conn:                 c.context.conn,
+			logger:               c.context.logger,
 		}
 
 		if c.transferInfo.Transfer == wire.ClientWriting {
@@ -57,13 +58,17 @@ func (c *client) getTransferOperation() func() (e error) {
 			if outFile, e = common.Create(c.transferInfo.FilePath, c.transferInfo.UserName); e != nil {
 				return
 			}
-			outFile.Close()
+			defer outFile.Close()
 			return readRemoteWriteLocal(txfrContext, outFile)
 		}
 
 		if c.transferInfo.Transfer == wire.ClientWriting {
-			//TODO: OPEN FILE
-			return readLocalWriteRemote(txfrContext)
+			var inFile io.ReadCloser
+			if inFile, e = common.Open(c.transferInfo.FilePath, c.transferInfo.UserName); e != nil {
+				return
+			}
+			defer inFile.Close()
+			return readLocalWriteRemote(txfrContext, inFile)
 		}
 
 		return nil

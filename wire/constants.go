@@ -6,11 +6,13 @@ const (
 	//AuthenticationMethodPassword password method
 	AuthenticationMethodPassword = "PASSWORD"
 
-	// ReadBufferSize size of buffer read from network connection
-	ReadBufferSize = 0x2800
 	// TxferBufferSize is the size of a preallocated buffer we use for network
 	// file reads and writes
 	TxferBufferSize = 0x10000
+	// DataBufferSize size of data packet for ClientRead and ClientDataResponse
+	DataBufferSize = 0x10000
+	// ReadBufferSize size of buffer read from network connection
+	ReadBufferSize = 0x2800 + DataBufferSize
 )
 
 // ResponseCode codes to communicate status of transactions

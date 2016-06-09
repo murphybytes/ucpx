@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/gob"
+	"errors"
 	"io"
 
 	"github.com/murphybytes/ucp/common"
@@ -15,6 +16,7 @@ type transferContext struct {
 	block                cipher.Block
 	initializationVector []byte
 	conn                 io.ReadWriteCloser
+	logger               common.Logger
 }
 
 func readRemoteWriteLocal(ctx *transferContext, outfile io.Writer) (e error) {
@@ -82,6 +84,58 @@ func readRemoteWriteLocal(ctx *transferContext, outfile io.Writer) (e error) {
 
 }
 
-func readLocalWriteRemote(ctx *transferContext) (e error) {
+func readLocalWriteRemote(ctx *transferContext, infile io.Reader) (e error) {
+
+	for {
+
+		var read int
+		encrypted := make([]byte, wire.ReadBufferSize)
+
+		if read, e = ctx.conn.Read(encrypted); e != nil {
+			return
+		}
+
+		decrypted := common.DecryptAES(ctx.block, ctx.initializationVector, encrypted[:read])
+
+		decodeBuffer := bytes.NewBuffer(decrypted)
+		decoder := gob.NewDecoder(decodeBuffer)
+		clientDataRequest := &wire.ClientDataRequest{}
+		if e = decoder.Decode(clientDataRequest); e != nil {
+			return
+		}
+
+		if clientDataRequest.Status != wire.More {
+			return errors.New(clientDataRequest.StatusText)
+		}
+
+		newIV := make([]byte, common.IVBlockSize)
+		rand.Read(newIV)
+
+		data := make([]byte, wire.DataBufferSize)
+
+		if read, e = infile.Read(data); e != nil {
+			// send message to client to terminate connection
+			var empty []byte
+
+			if e == io.EOF {
+				return sendClientDataResponse(newIV, empty, wire.EOF, "End of data")
+			}
+
+			sendClientDataResponse(newIV, empty, wire.Error, e.Error())
+			return
+
+		}
+
+		// save iv to use to decrypt next message
+		ctx.initializationVector = newIV
+
+		if e = sendClientDataResponse(newIV, data[:read], wire.OK, "OK"); e != nil {
+			return
+		}
+	}
+
+}
+
+func sendClientDataResponse(iv []byte, data []byte, status wire.ResponseCode, statusText string) (e error) {
 	return
 }
