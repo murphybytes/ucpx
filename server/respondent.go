@@ -50,7 +50,6 @@ func (c *client) getTransferOperation() func() (e error) {
 			block:                c.aesKey,
 			initializationVector: c.startingIV,
 			conn:                 c.context.conn,
-			logger:               c.context.logger,
 		}
 
 		if c.transferInfo.Transfer == wire.ClientWriting {

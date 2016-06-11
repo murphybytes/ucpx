@@ -16,7 +16,6 @@ type transferContext struct {
 	block                cipher.Block
 	initializationVector []byte
 	conn                 io.ReadWriteCloser
-	logger               common.Logger
 }
 
 func readRemoteWriteLocal(ctx *transferContext, outfile io.Writer) (e error) {
@@ -118,24 +117,45 @@ func readLocalWriteRemote(ctx *transferContext, infile io.Reader) (e error) {
 			var empty []byte
 
 			if e == io.EOF {
-				return sendClientDataResponse(newIV, empty, wire.EOF, "End of data")
+				return sendClientDataResponse(ctx, newIV, empty, wire.EOF, "End of data")
 			}
 
-			sendClientDataResponse(newIV, empty, wire.Error, e.Error())
+			sendClientDataResponse(ctx, newIV, empty, wire.Error, e.Error())
 			return
 
 		}
 
-		// save iv to use to decrypt next message
-		ctx.initializationVector = newIV
-
-		if e = sendClientDataResponse(newIV, data[:read], wire.OK, "OK"); e != nil {
+		if e = sendClientDataResponse(ctx, newIV, data[:read], wire.OK, "OK"); e != nil {
 			return
 		}
+
 	}
 
 }
 
-func sendClientDataResponse(iv []byte, data []byte, status wire.ResponseCode, statusText string) (e error) {
+func sendClientDataResponse(ctx *transferContext, iv []byte, data []byte, status wire.ResponseCode, statusText string) (e error) {
+	// note we send the next iv to client who will use it to encrypt the next message sent
+	// to us.  We use ctx.initializationVector to ecrypt this message
+	response := wire.ClientDataResponse{
+		NextInitializationVector: iv,
+		Data:       data,
+		Status:     status,
+		StatusText: statusText,
+	}
+
+	var encoderBuffer bytes.Buffer
+	encoder := gob.NewEncoder(&encoderBuffer)
+	if e = encoder.Encode(response); e != nil {
+		return
+	}
+
+	encrypted := common.EncryptAES(ctx.block, ctx.initializationVector, encoderBuffer.Bytes())
+
+	if _, e = ctx.conn.Write(encrypted); e != nil {
+		return
+	}
+	// set iv that client will use to encrypt the next message it sends
+	ctx.initializationVector = iv
+
 	return
 }
