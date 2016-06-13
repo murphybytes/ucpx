@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"io"
 	mathrand "math/rand"
 	"testing"
@@ -128,6 +127,10 @@ type stringable interface {
 	toString() string
 }
 
+type waitable interface {
+	wait()
+}
+
 // mock read closer to read from server
 type mockServerReadFile struct {
 	fileBytes []byte
@@ -140,9 +143,10 @@ func (m *mockServerReadFile) toString() string {
 
 func newMockServerReadFile(testFileSize int) io.ReadCloser {
 	var mock mockServerReadFile
-	// make a fake file full of random crap
+	//make a fake file full of random crap
 	mock.fileBytes = make([]byte, testFileSize)
 	rand.Read(mock.fileBytes)
+
 	return &mock
 }
 
@@ -166,10 +170,15 @@ type mockClientRecipient struct {
 	readNum        int
 	sentFromServer []byte
 	fauxNetwork    chan []byte
+	waiter         chan int
 }
 
 func (m *mockClientRecipient) toString() string {
 	return string(m.sentFromServer)
+}
+
+func (m *mockClientRecipient) wait() {
+	<-m.waiter
 }
 
 func getMockClientReaderContext() (ctx *transferContext) {
@@ -182,6 +191,7 @@ func getMockClientReaderContext() (ctx *transferContext) {
 
 	mockClient := &mockClientRecipient{
 		fauxNetwork: make(chan []byte),
+		waiter:      make(chan int),
 	}
 
 	ctx = &transferContext{
@@ -193,6 +203,9 @@ func getMockClientReaderContext() (ctx *transferContext) {
 	go func() {
 		clientiv := iv
 		clientblock := block
+		defer func() {
+			mockClient.waiter <- 1
+		}()
 
 		for {
 
@@ -204,7 +217,6 @@ func getMockClientReaderContext() (ctx *transferContext) {
 			var encodeBuffer bytes.Buffer
 			encoder := gob.NewEncoder(&encodeBuffer)
 			if err := encoder.Encode(clientDataRequest); err != nil {
-				fmt.Println("Error - " + err.Error())
 				return
 			}
 
@@ -218,7 +230,6 @@ func getMockClientReaderContext() (ctx *transferContext) {
 			decoder := gob.NewDecoder(decodeBuffer)
 			var response wire.ClientDataResponse
 			if err := decoder.Decode(&response); err != nil {
-				fmt.Println("Failed decoding -", err.Error())
 				return
 			}
 
@@ -227,12 +238,14 @@ func getMockClientReaderContext() (ctx *transferContext) {
 			}
 
 			if response.Status != wire.OK {
-				fmt.Println("Error ", response.StatusText)
 				return
 			}
 
+			encrypted = <-mockClient.fauxNetwork
+			decrypted = common.DecryptAES(clientblock, clientiv, encrypted)
+			mockClient.sentFromServer = append(mockClient.sentFromServer, decrypted...)
+
 			clientiv = response.NextInitializationVector
-			mockClient.sentFromServer = append(mockClient.sentFromServer, response.Data...)
 
 		}
 
@@ -260,20 +273,22 @@ func (m *mockClientRecipient) Close() (e error) {
 
 func TestReadLocalWriteRemote(t *testing.T) {
 	mathrand.Seed(time.Now().UnixNano())
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 10; i++ {
 		filesize := mathrand.Intn(0x100000)
 
 		file := newMockServerReadFile(filesize)
 		ctx := getMockClientReaderContext()
+		defer ctx.conn.Close()
 		if err := readLocalWriteRemote(ctx, file); err != nil {
 			t.Fatal("Unexpected error ", err.Error())
 		}
 
+		ctx.conn.(waitable).wait()
 		client := ctx.conn.(stringable)
 		serverfile := file.(stringable)
 
 		if client.toString() != serverfile.toString() {
-			t.Fatal("Contents should match, they don't")
+			t.Fatal("Contents should match got ", len(client.toString()), " expected ", len(serverfile.toString()))
 		}
 
 	}

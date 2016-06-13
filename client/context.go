@@ -37,7 +37,7 @@ func getWriteContext(flags *common.Flags) (c *context, e error) {
 	return getContext(flags.To, flags, false)
 }
 
-func getContext(filespec string, flags *common.Flags, read bool) (c *context, e error) {
+func getContext(filespec string, flags *common.Flags, read bool) (ctx *context, e error) {
 	var fi *fileInfo
 	fi, e = newFileInfo(filespec, read)
 
@@ -50,7 +50,7 @@ func getContext(filespec string, flags *common.Flags, read bool) (c *context, e 
 		return
 	}
 
-	ctx := &context{
+	ctx = &context{
 		fileInfo: fi,
 		flags:    flags,
 		logger:   logger,
@@ -81,9 +81,11 @@ func getContext(filespec string, flags *common.Flags, read bool) (c *context, e 
 		e = initTransfer(ctx)
 
 	} else {
+		fmt.Printf("Fileinfo %t %s\n", ctx.fileInfo.read, fi.path)
 		// local context read or write to a file
 		if ctx.fileInfo.read {
 			if ctx.file, e = os.Open(fi.path); e != nil {
+				fmt.Println("file open fails ", e.Error())
 				return
 			}
 		} else {
@@ -139,6 +141,7 @@ func initTransfer(ctx *context) (e error) {
 	}
 
 	ctx.initializationVector = txfrResponse.InitializationVector
+	fmt.Println("end transfer")
 
 	return
 
@@ -166,6 +169,10 @@ func (c *context) Write(p []byte) (n int, e error) {
 //func (c *context)
 func (c *context) Close() error {
 	closer := c.getIO()
-	return closer.Close()
+	if closer != nil {
+		return closer.Close()
+	}
+
+	return nil
 
 }

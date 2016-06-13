@@ -31,10 +31,10 @@ type ClientDataRequest struct {
 	StatusText string
 }
 
-// ClientDataResponse respond to ClientDataRequest with data
+// ClientDataResponse respond to ClientDataRequest with size of data expected
 type ClientDataResponse struct {
 	NextInitializationVector []byte
-	Data                     []byte
+	DataSize                 int
 	Status                   ResponseCode
 	StatusText               string
 }

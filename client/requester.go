@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -121,40 +122,105 @@ func (s *server) get(request []byte) (response []byte, e error) {
 
 func (s *server) Read(buff []byte) (n int, e error) {
 
-	if n, e = s.conn.Read(s.buffer); e != nil {
+	request := wire.ClientDataRequest{
+		Status:     wire.More,
+		StatusText: "More",
+	}
+
+	var encoderBuffer bytes.Buffer
+	encoder := gob.NewEncoder(&encoderBuffer)
+
+	if e = encoder.Encode(request); e != nil {
 		return
 	}
 
-	decrypted := common.DecryptAES(
-		s.context.aesKey,
-		s.context.initializationVector,
-		s.buffer[:n],
-	)
+	encrypted := common.EncryptAES(s.context.aesKey, s.context.initializationVector, encoderBuffer.Bytes())
 
-	decoderBuff := bytes.NewBuffer(decrypted)
-	decoder := gob.NewDecoder(decoderBuff)
-	packet := &wire.ReadPacket{}
-	if e = decoder.Decode(packet); e != nil {
+	if _, e = s.conn.Write(encrypted); e != nil {
 		return
 	}
 
-	if packet.Status == wire.OK {
-		s.context.initializationVector = packet.NextInitializationVector
-		n = copy(buff, packet.Buffer)
-	} else if packet.Status == wire.EOF {
+	readBuffer := make([]byte, wire.ReadBufferSize)
+
+	if n, e = s.conn.Read(readBuffer); e != nil {
+		return
+	}
+
+	decrypted := common.DecryptAES(s.context.aesKey, s.context.initializationVector, readBuffer[:n])
+
+	decodeBuffer := bytes.NewBuffer(decrypted)
+	decoder := gob.NewDecoder(decodeBuffer)
+
+	var clientDataResponse wire.ClientDataResponse
+
+	if e = decoder.Decode(&clientDataResponse); e != nil {
+		return
+	}
+
+	if clientDataResponse.Status == wire.EOF {
 		e = io.EOF
 		return
-	} else {
-		e = errors.New(packet.StatusText)
+	}
+
+	if clientDataResponse.Status != wire.OK {
+		e = errors.New(clientDataResponse.StatusText)
 		return
 	}
+
+	s.context.initializationVector = clientDataResponse.NextInitializationVector
+
+	n = copy(buff, clientDataResponse.Data)
 
 	return
 }
 
 func (s *server) Write(buff []byte) (n int, e error) {
-	// send bytes using iv vector that we have to encrypt, server
-	// sends us back a status and our next iv
+	fmt.Printf("called write writing % data\n", len(buff))
+	clientRead := &wire.ClientRead{
+		Buffer:     buff,
+		Status:     wire.More,
+		StatusText: "More",
+	}
+
+	n = len(clientRead.Buffer)
+
+	var encoderBuffer bytes.Buffer
+	encoder := gob.NewEncoder(&encoderBuffer)
+	if e = encoder.Encode(clientRead); e != nil {
+		return
+	}
+
+	encrypted := common.EncryptAES(s.context.aesKey, s.context.initializationVector, encoderBuffer.Bytes())
+	fmt.Printf("encrypted bytes %d\n", len(encrypted))
+	var written int
+	if written, e = s.conn.Write(encrypted); e != nil {
+		return
+	}
+
+	fmt.Printf("wrote encoded %d bytes to server\n", written)
+
+	readBuffer := make([]byte, wire.ReadBufferSize)
+
+	var read int
+	if read, e = s.conn.Read(readBuffer); e != nil {
+		return
+	}
+
+	decrypted := common.DecryptAES(s.context.aesKey, s.context.initializationVector, readBuffer[:read])
+	decodeBuffer := bytes.NewBuffer(decrypted)
+	decoder := gob.NewDecoder(decodeBuffer)
+
+	var clientReadResponse wire.ClientReadResponse
+	if e = decoder.Decode(&clientReadResponse); e != nil {
+		return
+	}
+
+	if clientReadResponse.Status != wire.OK {
+		return 0, errors.New(clientReadResponse.StatusText)
+	}
+
+	s.context.initializationVector = clientReadResponse.NextInitializationVector
+
 	return
 }
 

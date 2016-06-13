@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/murphybytes/ucp/common"
@@ -19,21 +20,24 @@ type transferContext struct {
 }
 
 func readRemoteWriteLocal(ctx *transferContext, outfile io.Writer) (e error) {
-
+	fmt.Println("read remote write local was called. ")
 	for {
 		var read int
 		encrypted := make([]byte, wire.ReadBufferSize)
 		if read, e = ctx.conn.Read(encrypted); e != nil {
 			return
 		}
+		fmt.Printf("read %d from client\n", read)
 
 		decrypted := common.DecryptAES(ctx.block, ctx.initializationVector, encrypted[:read])
+		fmt.Printf("descrypted len %d\n", len(decrypted))
 
 		decoderBuffer := bytes.NewBuffer(decrypted)
 		decoder := gob.NewDecoder(decoderBuffer)
 
 		clientRead := &wire.ClientRead{}
 		if e = decoder.Decode(clientRead); e != nil {
+			fmt.Println("decode error ", e.Error())
 			return
 		}
 
@@ -113,16 +117,24 @@ func readLocalWriteRemote(ctx *transferContext, infile io.Reader) (e error) {
 		data := make([]byte, wire.DataBufferSize)
 
 		if read, e = infile.Read(data); e != nil {
-			// send message to client to terminate connection
 			var empty []byte
+			status := wire.Error
 
+			err := e
 			if e == io.EOF {
-				return sendClientDataResponse(ctx, newIV, empty, wire.EOF, "End of data")
+
+				status = wire.EOF
+				e = nil
 			}
 
-			sendClientDataResponse(ctx, newIV, empty, wire.Error, e.Error())
+			// send message to client to terminate connection
+			sendClientDataResponse(ctx, newIV, empty, status, err.Error())
 			return
 
+		}
+
+		if read == 0 {
+			sendClientDataResponse(ctx, newIV, []byte{}, wire.EOF, "END")
 		}
 
 		if e = sendClientDataResponse(ctx, newIV, data[:read], wire.OK, "OK"); e != nil {
@@ -134,11 +146,13 @@ func readLocalWriteRemote(ctx *transferContext, infile io.Reader) (e error) {
 }
 
 func sendClientDataResponse(ctx *transferContext, iv []byte, data []byte, status wire.ResponseCode, statusText string) (e error) {
+
 	// note we send the next iv to client who will use it to encrypt the next message sent
 	// to us.  We use ctx.initializationVector to ecrypt this message
 	response := wire.ClientDataResponse{
 		NextInitializationVector: iv,
-		Data:       data,
+		// tell client how much data we'll be sending
+		DataSize:   len(data),
 		Status:     status,
 		StatusText: statusText,
 	}
@@ -154,6 +168,15 @@ func sendClientDataResponse(ctx *transferContext, iv []byte, data []byte, status
 	if _, e = ctx.conn.Write(encrypted); e != nil {
 		return
 	}
+
+	if status == wire.OK {
+		encrypted = common.EncryptAES(ctx.block, ctx.initializationVector, data)
+
+		if _, e = ctx.conn.Write(encrypted); e != nil {
+			return
+		}
+	}
+
 	// set iv that client will use to encrypt the next message it sends
 	ctx.initializationVector = iv
 

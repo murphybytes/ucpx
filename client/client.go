@@ -1,10 +1,12 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"log"
 
 	"github.com/murphybytes/ucp/common"
+	"github.com/murphybytes/ucp/wire"
 )
 
 // Client contains all the logic for ucp client.
@@ -34,22 +36,33 @@ func (c *Client) Run() (e error) {
 	}
 	defer writer.Close()
 
-	// for {
-	// 	var buffer []byte
-	//
-	// 	if buffer, e = reader.Read(); e != nil {
-	// 		if e == io.EOF {
-	// 			break
-	// 		} else {
-	// 			log.Fatal(e.Error())
-	// 		}
-	// 	}
-	//
-	// 	if e = writer.Write(buffer); e != nil {
-	// 		log.Fatal(e.Error())
-	// 	}
-	//
-	// }
+	fmt.Println("opened reader and writer")
+	for {
+		var read int
+		readBuffer := make([]byte, wire.DataBufferSize)
+
+		read, e = reader.Read(readBuffer)
+
+		fmt.Printf("Read %d\n", read)
+
+		if e == io.EOF {
+			break
+		}
+
+		if e != nil {
+			log.Fatal(e.Error())
+		}
+
+		fmt.Println("Ready to writexxx ")
+		var written int
+		if written, e = writer.Write(readBuffer[:read]); e != nil {
+			fmt.Println("Got here")
+			log.Fatal(e.Error())
+		}
+
+		fmt.Printf("client write successful wrote %d\n", written)
+
+	}
 
 	return
 }
